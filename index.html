@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en-AU" data-belt="white">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>PROOF — Jiu-Jitsu, measured</title>
+<meta name="description" content="The training companion that proves you're improving. Log a session in 30 seconds by voice — PROOF tracks your progress, watches your body, and makes sure you never forget a technique.">
+<meta name="theme-color" content="#0a0d12">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PROOF">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ═ onboarding (first run) ═══════════════════════════════ -->
+<div class="onb" id="onb" hidden>
+  <div class="onb-slides" id="onbSlides"></div>
+</div>
+
+<!-- ═ app shell ════════════════════════════════════════════ -->
+<div class="app" id="app" hidden>
+
+  <header class="top" id="topbar">
+    <div class="top-in">
+      <div class="wordmark" aria-label="PROOF">
+        <svg class="wm-mark" viewBox="0 0 40 40" aria-hidden="true">
+          <!-- belt-knot mark: two crossing bands -->
+          <path class="wm-a" d="M6 26 L20 10 L27 17 L13 33 Z"/>
+          <path class="wm-b" d="M13 10 L34 26 L27 33 L6 17 Z" opacity=".55"/>
+        </svg>
+        <span>PROOF</span>
+      </div>
+      <div class="top-right">
+        <span class="belt-chip" id="beltChip" role="button" tabindex="0" aria-label="Your belt"></span>
+      </div>
+    </div>
+  </header>
+
+  <main class="view" id="view" tabindex="-1"></main>
+
+  <!-- log FAB -->
+  <button class="fab" id="fabLog" aria-label="Log a session">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+    <span>LOG</span>
+  </button>
+
+  <nav class="tabs" aria-label="Main">
+    <button class="tab on" data-tab="home" aria-label="Home">
+      <svg viewBox="0 0 24 24"><path d="M4 11 12 4l8 7v9h-5v-6h-6v6H4Z"/></svg><span>Mat</span>
+    </button>
+    <button class="tab" data-tab="proof" aria-label="Proof">
+      <svg viewBox="0 0 24 24"><path d="M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M7 6H4.5a2.5 2.5 0 0 0 5 0" transform="translate(-1.5 1)"/><path d="M17 6h2.5a2.5 2.5 0 0 1-5 0" transform="translate(1.5 1)"/><path d="M12 14v3M8.5 20h7M12 17c-1.5 0-2.5 1-3.5 3h7c-1-2-2-3-3.5-3Z"/></svg><span>Proof</span>
+    </button>
+    <button class="tab" data-tab="body" aria-label="Body">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.6"/><path d="M12 9c-3 0-5 1.4-5 4l2 .8V21h6v-7.2l2-.8c0-2.6-2-4-5-4Z"/></svg><span>Body</span>
+    </button>
+    <button class="tab" data-tab="recall" aria-label="Recall">
+      <svg viewBox="0 0 24 24"><path d="M12 4a8 8 0 1 0 8 8" stroke-linecap="round"/><path d="M20 4v5h-5" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 8v4l3 2" stroke-linecap="round"/></svg><span>Recall</span>
+    </button>
+    <button class="tab" data-tab="you" aria-label="You">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4"/><path d="M5 20c1-3.6 3.8-5.4 7-5.4s6 1.8 7 5.4"/></svg><span>You</span>
+    </button>
+  </nav>
+</div>
+
+<!-- ═ sheets & overlays ════════════════════════════════════ -->
+<div class="scrim" id="scrim" hidden></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" hidden>
+  <div class="sheet-grab" aria-hidden="true"></div>
+  <div class="sheet-body" id="sheetBody"></div>
+</div>
+
+<div class="mega" id="mega" hidden></div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<canvas id="shareCanvas" width="1080" height="1350" hidden></canvas>
+
+<script src="js/taxonomy.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

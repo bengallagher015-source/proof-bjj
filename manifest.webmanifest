@@ -1,0 +1,16 @@
+{
+  "name": "PROOF — Jiu-Jitsu, measured",
+  "short_name": "PROOF",
+  "description": "Log a session in 30 seconds. PROOF shows you the evidence you're improving, watches your body, and resurfaces techniques before you forget them.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0d12",
+  "theme_color": "#0a0d12",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
