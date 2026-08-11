@@ -388,6 +388,61 @@ svg{display:block}
 .bigmark{width:min(46vw,190px); height:auto}
 .bigmark .wm-a{fill:var(--acc)} .bigmark .wm-b{fill:var(--acc); opacity:.5}
 
+/* ── move library ────────────────────────────────────────── */
+.lib-bar{height:7px; border-radius:5px; background:var(--ink-4); overflow:hidden}
+.lib-bar i{display:block; height:100%; border-radius:5px;
+  background:linear-gradient(90deg, var(--acc-2), var(--acc)); transition:width .5s var(--ease)}
+
+.lib-next{display:flex; align-items:center; gap:12px; width:100%; text-align:left;
+  padding:11px 12px; margin-bottom:7px; border-radius:14px; cursor:pointer;
+  background:var(--ink-3); border:1px solid var(--line);
+  transition:transform .18s var(--spring), border-color .18s, background .18s}
+.lib-next:active{transform:scale(.98)}
+.lib-next:hover{border-color:var(--acc-line); background:var(--ink-4)}
+.lib-tick{width:26px; height:26px; flex:none; border-radius:9px;
+  border:2px solid var(--line-2); background:var(--ink); position:relative}
+.lib-next:hover .lib-tick{border-color:var(--acc)}
+.lib-tick::after{content:""; position:absolute; inset:0; margin:auto;
+  width:9px; height:5px; border-left:2.4px solid var(--acc); border-bottom:2.4px solid var(--acc);
+  transform:rotate(-45deg) translateY(-1px); opacity:0; transition:opacity .16s}
+.lib-next:hover .lib-tick::after{opacity:.45}
+.lib-next .tech-nm{min-width:0}
+.lib-next .tech-nm b{display:flex; align-items:center; gap:7px}
+.lib-next .tech-nm span{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block}
+
+.lib-cats{display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-top:14px}
+.lib-cat{display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:8px;
+  padding:11px 12px 12px; border-radius:14px; text-align:left;
+  background:var(--ink-3); border:1px solid var(--line);
+  transition:transform .18s var(--spring), border-color .18s}
+.lib-cat:active{transform:scale(.97)}
+.lib-cat:hover{border-color:var(--acc-line)}
+.lc-ico{font-size:15px; line-height:1}
+.lc-nm{font:600 13px/1.15 var(--f-body); color:var(--tx)}
+.lc-n{font-size:11.5px; color:var(--tx-3); letter-spacing:-.02em}
+.lc-bar{grid-column:1/-1; height:4px; border-radius:3px; background:var(--ink); overflow:hidden; margin-top:3px}
+.lc-bar i{display:block; height:100%; background:var(--acc); border-radius:3px; transition:width .5s var(--ease)}
+
+.lib-band{font:600 10.5px/1 var(--f-mono); letter-spacing:.16em; text-transform:uppercase;
+  color:var(--tx-3); margin:20px 0 8px; padding-bottom:7px; border-bottom:1px solid var(--line)}
+.lib-band:first-of-type{margin-top:6px}
+.lib-row{display:flex; align-items:center; gap:12px; padding:11px 2px; cursor:pointer;
+  border-bottom:1px solid var(--line); min-height:46px}
+.lib-row:last-of-type{border-bottom:0}
+.lib-row input{position:absolute; opacity:0; width:0; height:0}
+.lib-box{width:23px; height:23px; flex:none; border-radius:8px; position:relative;
+  border:2px solid var(--line-2); background:var(--ink-4); transition:background .16s, border-color .16s}
+.lib-box::after{content:""; position:absolute; inset:0; margin:auto;
+  width:8px; height:4.5px; border-left:2.4px solid var(--acc-ink); border-bottom:2.4px solid var(--acc-ink);
+  transform:rotate(-45deg) translateY(-1px) scale(.5); opacity:0; transition:opacity .16s, transform .2s var(--spring)}
+.lib-row.on .lib-box{background:var(--acc); border-color:var(--acc)}
+.lib-row.on .lib-box::after{opacity:1; transform:rotate(-45deg) translateY(-1px) scale(1)}
+.lib-nm{font-size:14.5px; color:var(--tx-2); transition:color .16s}
+.lib-row.on .lib-nm{color:var(--tx)}
+.lib-hit{display:inline-block; margin-left:8px; font:600 9.5px/1 var(--f-mono); font-style:normal;
+  letter-spacing:.1em; text-transform:uppercase; color:var(--acc);
+  background:var(--acc-soft); border:1px solid var(--acc-line); border-radius:5px; padding:3px 5px}
+
 /* ── you tab ─────────────────────────────────────────────── */
 .you-hd{display:flex; align-items:center; gap:15px; padding:8px 0 18px}
 .avatar{width:62px; height:62px; border-radius:50%; flex:none; display:grid; place-items:center;

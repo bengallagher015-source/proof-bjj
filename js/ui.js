@@ -459,6 +459,7 @@ function shadowDrill(techName, onDone) {
 }
 function renderRecall() {
   const due = recallDue(), ars = arsenal();
+  const lib = libStats(), next = nextUp(3);
   const IVL_TX = ['tomorrow', 'in 3 days', 'in a week', 'in 3 weeks', 'in 2 months'];
   view().innerHTML = `
     <div class="aurora">
@@ -480,6 +481,33 @@ function renderRecall() {
           <div class="ladder">${[0, 1, 2, 3, 4].map(s => `<i class="${s <= d.stage ? 'on' : ''}"></i>`).join('')}</div>
         </div>`).join('')
       : `<div class="card"><div class="empty" style="padding:20px"><div class="e-ico">🧠</div><h3>Queue clear</h3><p>Techniques you log resurface here right before your brain files them under "gone". Next reviews are scheduled.</p></div></div>`}
+    </div>
+
+    <div class="card enter" style="margin-top:6px">
+      <div class="card-hd"><h3>The library</h3><span class="tiny">${lib.done} / ${lib.total} learnt</span></div>
+      <div class="lib-bar"><i style="width:${lib.pct}%"></i></div>
+      <p class="tiny" style="margin:8px 0 14px">${lib.done === 0
+        ? 'Every move in jiu-jitsu, in one list. Tick what you know — the rest becomes your map.'
+        : lib.untickedButTouched
+          ? `${lib.untickedButTouched} move${lib.untickedButTouched > 1 ? 's you\'ve' : ' you\'ve'} already hit on the mat ${lib.untickedButTouched > 1 ? 'are' : 'is'} still unticked.`
+          : `${lib.pct}% of the map filled in.`}</p>
+
+      ${next.length ? `<div class="kicker" style="margin-bottom:8px">Next one to get</div>
+      ${next.map(t => `
+        <div class="lib-next" data-learn="${t.id}">
+          <button class="lib-tick" aria-label="Mark ${esc(t.name)} learnt"></button>
+          <div class="tech-nm"><b>${esc(t.name)}${t.touched ? '<i class="lib-hit">hit it</i>' : ''}</b><span>${TECH_CATS[t.cat].name} · ${BELTS[BELT_ORDER[t.lvl - 1]].name.toLowerCase()} belt</span></div>
+        </div>`).join('')}` : `<p class="tiny">Whole library ticked. Genuinely rare — go teach.</p>`}
+
+      <div class="lib-cats">
+        ${lib.cats.map(c => `
+          <button class="lib-cat" data-cat="${c.cat}">
+            <span class="lc-ico">${c.ico}</span>
+            <span class="lc-nm">${c.name}</span>
+            <span class="lc-n num">${c.done}/${c.total}</span>
+            <span class="lc-bar"><i style="width:${c.pct}%"></i></span>
+          </button>`).join('')}
+      </div>
     </div>
 
     <div class="card enter" style="margin-top:6px">
@@ -516,6 +544,50 @@ function renderRecall() {
     saveState(); renderRecall();
     toast(state.focus ? `${techById(state.focus).name} is this week's weapon` : 'Focus cleared');
   }));
+  view().querySelectorAll('[data-learn]').forEach(row => row.addEventListener('click', () => {
+    const id = row.dataset.learn, t = techById(id);
+    const r = row.getBoundingClientRect();
+    setLearned(id, true);
+    burst(r.left + 26, r.top + r.height / 2, 12);
+    toast(`${t.name} learnt · +20 MP — it'll come back for a recall check tomorrow`, 3400);
+    renderRecall(); checkLevelUp();
+  }));
+  view().querySelectorAll('[data-cat]').forEach(b => b.addEventListener('click', () => openLibrary(b.dataset.cat)));
+}
+
+/* Full move list for one category — tick as you go. */
+function openLibrary(cat) {
+  const draw = () => {
+    const lm = learnedMap(), touched = touchedIds();
+    const all = TECHS.filter(t => t.cat === cat)
+      .map(t => ({ ...t, lvl: techLevel(t.id), on: !!lm[t.id], hit: touched.has(t.id) }))
+      .sort((a, b) => a.lvl - b.lvl || a.name.localeCompare(b.name));
+    const done = all.filter(t => t.on).length;
+    openSheet(`
+      <h2>${TECH_CATS[cat].ico} ${TECH_CATS[cat].pl}</h2>
+      <p class="sub">${done} of ${all.length} ticked · grouped by roughly when you'd meet them</p>
+      ${[1, 2, 3, 4, 5].map(lvl => {
+        const rows = all.filter(t => t.lvl === lvl);
+        if (!rows.length) return '';
+        return `<div class="lib-band">${BELTS[BELT_ORDER[lvl - 1]].name}</div>` + rows.map(t => `
+          <label class="lib-row${t.on ? ' on' : ''}">
+            <input type="checkbox" data-tick="${t.id}"${t.on ? ' checked' : ''}>
+            <span class="lib-box" aria-hidden="true"></span>
+            <span class="lib-nm">${esc(t.name)}${t.hit ? '<i class="lib-hit">hit it</i>' : ''}</span>
+          </label>`).join('');
+      }).join('')}
+      <button class="btn ghost small" id="libDone" style="margin-top:18px">Done</button>`);
+    document.getElementById('libDone').addEventListener('click', closeSheet);
+    document.querySelectorAll('[data-tick]').forEach(cb => cb.addEventListener('change', () => {
+      setLearned(cb.dataset.tick, cb.checked);
+      cb.closest('.lib-row').classList.toggle('on', cb.checked);
+      /* redraw the tab underneath so the counts stay honest when the sheet closes */
+      const y = document.getElementById('sheetBody').scrollTop;
+      renderRecall();
+      document.getElementById('sheetBody').scrollTop = y;
+    }));
+  };
+  draw();
 }
 
 /* ── YOU tab ─────────────────────────────────────────────── */

@@ -24,14 +24,17 @@ const SESSION_TYPES = [
 ];
 
 const TECH_CATS = {
-  sub:     { name: 'Submission', ico: '🔒' },
-  sweep:   { name: 'Sweep',      ico: '🔄' },
-  pass:    { name: 'Pass',       ico: '➡️' },
-  escape:  { name: 'Escape',     ico: '🚪' },
-  td:      { name: 'Takedown',   ico: '🤸' },
-  guard:   { name: 'Guard',      ico: '🛡️' },
-  control: { name: 'Control',    ico: '⚓' },
+  sub:     { name: 'Submission', pl: 'Submissions', ico: '🔒' },
+  leg:     { name: 'Leg lock',   pl: 'Leg locks',   ico: '🦵' },
+  sweep:   { name: 'Sweep',      pl: 'Sweeps',      ico: '🔄' },
+  pass:    { name: 'Pass',       pl: 'Passes',      ico: '➡️' },
+  escape:  { name: 'Escape',     pl: 'Escapes',     ico: '🚪' },
+  td:      { name: 'Takedown',   pl: 'Takedowns',   ico: '🤸' },
+  guard:   { name: 'Guard',      pl: 'Guards',      ico: '🛡️' },
+  control: { name: 'Position',   pl: 'Positions',   ico: '⚓' },
 };
+/* Library reading order — coarse position work first, finishes after. */
+const LIB_ORDER = ['control', 'guard', 'pass', 'sweep', 'sub', 'leg', 'escape', 'td'];
 
 /* [id, name, cat, aliases...] — aliases include spoken/passive forms */
 const TECH_DEFS = [
@@ -48,10 +51,16 @@ const TECH_DEFS = [
   ['ezekiel', 'Ezekiel', 'sub', 'ezekiel choke'],
   ['omoplata', 'Omoplata', 'sub', 'omoplatas'],
   ['gogoplata', 'Gogoplata', 'sub'],
-  ['heel-hook', 'Heel Hook', 'sub', 'heel hook', 'heel hooked', 'inside heel hook', 'outside heel hook'],
-  ['kneebar', 'Kneebar', 'sub', 'knee bar'],
-  ['toe-hold', 'Toe Hold', 'sub', 'toe hold', 'toehold'],
-  ['ankle-lock', 'Ankle Lock', 'sub', 'ankle lock', 'straight ankle', 'achilles lock', 'footlock', 'foot lock'],
+  ['heel-hook', 'Heel Hook', 'leg', 'heel hook', 'heel hooked'],
+  ['inside-heel-hook', 'Inside Heel Hook', 'leg', 'inside heel hook', 'ihh'],
+  ['outside-heel-hook', 'Outside Heel Hook', 'leg', 'outside heel hook', 'ohh'],
+  ['kneebar', 'Kneebar', 'leg', 'knee bar'],
+  ['toe-hold', 'Toe Hold', 'leg', 'toe hold', 'toehold'],
+  ['ankle-lock', 'Ankle Lock', 'leg', 'ankle lock', 'straight ankle', 'achilles lock', 'footlock', 'foot lock'],
+  ['estima-lock', 'Estima Lock', 'leg', 'estima'],
+  ['aoki-lock', 'Aoki Lock', 'leg', 'aoki'],
+  ['banana-split', 'Banana Split', 'leg', 'banana split'],
+  ['knee-compression', 'Knee Compression', 'leg', 'knee slicer', 'knee crush'],
   ['cross-collar', 'Cross-Collar Choke', 'sub', 'cross collar', 'collar choke', 'cross choke'],
   ['bow-arrow', 'Bow & Arrow', 'sub', 'bow and arrow'],
   ['loop-choke', 'Loop Choke', 'sub', 'loop choked'],
@@ -60,8 +69,26 @@ const TECH_DEFS = [
   ['north-south-choke', 'North-South Choke', 'sub', 'north south choke'],
   ['paper-cutter', 'Paper Cutter', 'sub', 'paper cutter choke', 'breadcutter', 'bread cutter'],
   ['wrist-lock', 'Wrist Lock', 'sub', 'wristlock', 'wrist locked'],
-  ['calf-slicer', 'Calf Slicer', 'sub', 'calf crush'],
+  ['calf-slicer', 'Calf Slicer', 'leg', 'calf crush'],
   ['twister', 'Twister', 'sub'],
+  ['peruvian-necktie', 'Peruvian Necktie', 'sub', 'peruvian'],
+  ['japanese-necktie', 'Japanese Necktie', 'sub'],
+  ['von-flue', 'Von Flue Choke', 'sub', 'von flue', 'vonflue'],
+  ['bulldog-choke', 'Bulldog Choke', 'sub', 'bulldog'],
+  ['buggy-choke', 'Buggy Choke', 'sub', 'buggy'],
+  ['monoplata', 'Monoplata', 'sub'],
+  ['baratoplata', 'Baratoplata', 'sub'],
+  ['tarikoplata', 'Tarikoplata', 'sub', 'tariko'],
+  ['brabo-choke', 'Brabo Choke', 'sub', 'brabo'],
+  ['mounted-triangle', 'Mounted Triangle', 'sub', 'mounted triangle'],
+  ['rear-triangle', 'Rear Triangle', 'sub', 'rear triangle'],
+  ['short-choke', 'Short Choke', 'sub', 'short choke'],
+  ['lapel-choke', 'Lapel Choke', 'sub', 'lapel choke'],
+  ['straight-armlock', 'Straight Armlock', 'sub', 'straight arm lock', 'juji gatame'],
+  ['belly-down-armbar', 'Belly-Down Armbar', 'sub', 'belly down armbar'],
+  ['crucifix-choke', 'Crucifix Choke', 'sub'],
+  ['can-opener', 'Can Opener', 'sub', 'can opener'],
+  ['bicep-slicer', 'Bicep Slicer', 'sub', 'bicep crush', 'biceps slicer'],
   /* sweeps */
   ['scissor-sweep', 'Scissor Sweep', 'sweep', 'scissor'],
   ['hip-bump', 'Hip Bump Sweep', 'sweep', 'hip bump'],
@@ -73,6 +100,18 @@ const TECH_DEFS = [
   ['old-school', 'Old School Sweep', 'sweep', 'old school'],
   ['john-wayne', 'John Wayne Sweep', 'sweep'],
   ['berimbolo', 'Berimbolo', 'sweep', 'bolo'],
+  ['elevator-sweep', 'Elevator Sweep', 'sweep', 'elevator'],
+  ['waiter-sweep', 'Waiter Sweep', 'sweep', 'waiter'],
+  ['dogfight-sweep', 'Dogfight Sweep', 'sweep', 'dogfight'],
+  ['electric-chair', 'Electric Chair', 'sweep', 'electric chair'],
+  ['tornado-sweep', 'Tornado Sweep', 'sweep', 'tornado'],
+  ['overhead-sweep', 'Overhead Sweep', 'sweep', 'overhead'],
+  ['star-sweep', 'Star Sweep', 'sweep'],
+  ['kiss-of-dragon', 'Kiss of the Dragon', 'sweep', 'kiss of the dragon', 'kotd'],
+  ['shin-to-shin-sweep', 'Shin-to-Shin Sweep', 'sweep', 'shin to shin sweep'],
+  ['muscle-sweep', 'Muscle Sweep', 'sweep'],
+  ['balloon-sweep', 'Balloon Sweep', 'sweep', 'balloon'],
+  ['sumi-gaeshi', 'Sumi Gaeshi', 'sweep', 'sumi'],
   ['sweep', 'Sweep (general)', 'sweep', 'swept', 'sweeps'],
   /* passes */
   ['knee-cut', 'Knee Cut', 'pass', 'knee slice', 'knee cut pass', 'knee slide'],
@@ -83,6 +122,19 @@ const TECH_DEFS = [
   ['leg-drag', 'Leg Drag', 'pass', 'leg dragged'],
   ['body-lock-pass', 'Body Lock Pass', 'pass', 'body lock pass', 'bodylock pass'],
   ['long-step', 'Long Step Pass', 'pass', 'long step'],
+  ['x-pass', 'X-Pass', 'pass', 'x pass'],
+  ['stack-pass', 'Stack Pass', 'pass', 'stacked'],
+  ['headquarters', 'Headquarters', 'pass', 'hq', 'head quarters'],
+  ['folding-pass', 'Folding Pass', 'pass', 'folding'],
+  ['cartwheel-pass', 'Cartwheel Pass', 'pass', 'cartwheel'],
+  ['floating-pass', 'Floating Pass', 'pass', 'float pass', 'floating'],
+  ['leg-weave', 'Leg Weave', 'pass', 'leg weave'],
+  ['tozi-pass', 'Tozi Pass', 'pass', 'tozi', 'wilson guard pass'],
+  ['backstep', 'Backstep', 'pass', 'back step'],
+  ['knee-shield-pass', 'Knee Shield Pass', 'pass', 'knee shield pass'],
+  ['saulo-pass', 'Saulo Pass', 'pass', 'saulo'],
+  ['pressure-pass', 'Pressure Pass', 'pass', 'pressure passed'],
+  ['toreando-bullfight', 'Bullfighter Pass', 'pass', 'bull fighter pass'],
   ['pass', 'Guard Pass (general)', 'pass', 'passed', 'passed guard', 'passes'],
   /* escapes */
   ['shrimp-escape', 'Hip Escape', 'escape', 'shrimp', 'shrimped', 'hip escape'],
@@ -92,6 +144,18 @@ const TECH_DEFS = [
   ['mount-escape', 'Mount Escape', 'escape', 'escaped mount', 'escaped the mount'],
   ['side-escape', 'Side Control Escape', 'escape', 'escaped side control', 'escaped side'],
   ['guard-recovery', 'Guard Recovery', 'escape', 'recovered guard', 'reguard', 're-guard'],
+  ['granby-roll', 'Granby Roll', 'escape', 'granby'],
+  ['ghost-escape', 'Ghost Escape', 'escape', 'ghost'],
+  ['sit-out', 'Sit-Out', 'escape', 'sit out'],
+  ['hip-heist', 'Hip Heist', 'escape', 'hip heist'],
+  ['wrestle-up', 'Wrestle-Up', 'escape', 'wrestle up'],
+  ['kipping-escape', 'Kipping Escape', 'escape', 'kip escape'],
+  ['stack-escape', 'Stack Escape', 'escape', 'escaped the stack'],
+  ['north-south-escape', 'North-South Escape', 'escape', 'escaped north south'],
+  ['kob-escape', 'Knee-on-Belly Escape', 'escape', 'escaped knee on belly'],
+  ['turtle-recovery', 'Turtle Recovery', 'escape', 'recovered turtle'],
+  ['frame-and-shrimp', 'Frame & Shrimp', 'escape', 'frame and shrimp'],
+  ['leg-lock-escape', 'Leg Lock Escape', 'escape', 'escaped the heel hook', 'leg lock defence', 'leg lock defense'],
   /* takedowns */
   ['double-leg', 'Double Leg', 'td', 'double legged', 'double'],
   ['single-leg', 'Single Leg', 'td', 'single legged', 'single'],
@@ -102,6 +166,20 @@ const TECH_DEFS = [
   ['ankle-pick', 'Ankle Pick', 'td', 'ankle picked'],
   ['arm-drag', 'Arm Drag', 'td', 'arm dragged'],
   ['snap-down', 'Snap Down', 'td', 'snapdown', 'snapped down'],
+  ['blast-double', 'Blast Double', 'td', 'blast double'],
+  ['high-crotch', 'High Crotch', 'td', 'high crotch'],
+  ['low-single', 'Low Single', 'td', 'low single'],
+  ['duck-under', 'Duck Under', 'td', 'duck under'],
+  ['fireman-carry', "Fireman's Carry", 'td', 'fireman carry', 'firemans carry'],
+  ['ouchi-gari', 'Ouchi Gari', 'td', 'ouchi'],
+  ['kouchi-gari', 'Kouchi Gari', 'td', 'kouchi'],
+  ['harai-goshi', 'Harai Goshi', 'td', 'harai'],
+  ['tai-otoshi', 'Tai Otoshi', 'td'],
+  ['tomoe-nage', 'Tomoe Nage', 'td', 'tomoe'],
+  ['drop-seoi', 'Drop Seoi Nage', 'td', 'drop seoi'],
+  ['body-lock-td', 'Body Lock Takedown', 'td', 'body lock takedown'],
+  ['russian-tie', 'Russian Tie', 'td', 'russian two on one', 'two on one'],
+  ['knee-tap', 'Knee Tap', 'td', 'knee tapped'],
   ['takedown', 'Takedown (general)', 'td', 'took him down', 'took her down', 'took them down'],
   /* guards */
   ['closed-guard', 'Closed Guard', 'guard', 'full guard'],
@@ -120,6 +198,17 @@ const TECH_DEFS = [
   ['worm-guard', 'Worm Guard', 'guard'],
   ['fifty-fifty', '50/50', 'guard', '50 50', 'fifty fifty'],
   ['turtle', 'Turtle', 'guard', 'turtled'],
+  ['collar-sleeve', 'Collar & Sleeve', 'guard', 'collar sleeve'],
+  ['knee-shield', 'Knee Shield', 'guard', 'knee shield', 'z guard', 'z-guard'],
+  ['sit-up-guard', 'Sit-Up Guard', 'guard', 'sit up guard'],
+  ['shin-to-shin', 'Shin-to-Shin Guard', 'guard', 'shin to shin'],
+  ['octopus-guard', 'Octopus Guard', 'guard', 'octopus'],
+  ['williams-guard', 'Williams Guard', 'guard', 'williams'],
+  ['squid-guard', 'Squid Guard', 'guard', 'squid'],
+  ['saddle', 'Saddle (411)', 'guard', 'saddle', 'honey hole', '411', 'four eleven', 'inside sankaku'],
+  ['outside-ashi', 'Outside Ashi', 'guard', 'outside ashi garami'],
+  ['cross-ashi', 'Cross Ashi', 'guard', 'cross ashi garami', '50 50 cross'],
+  ['reverse-x', 'Reverse X', 'guard', 'reverse x guard'],
   /* control / positions */
   ['mount', 'Mount', 'control', 'mounted', 'full mount', 'high mount'],
   ['back-control', 'Back Control', 'control', 'took the back', 'back take', 'got the back', 'back mount', 'hooks in'],
@@ -129,7 +218,62 @@ const TECH_DEFS = [
   ['crucifix', 'Crucifix', 'control'],
   ['body-triangle', 'Body Triangle', 'control', 'body lock'],
   ['front-headlock', 'Front Headlock', 'control', 'front head lock'],
+  ['s-mount', 'S-Mount', 'control', 's mount'],
+  ['technical-mount', 'Technical Mount', 'control', 'technical mount'],
+  ['kesa-gatame', 'Kesa Gatame', 'control', 'scarf hold', 'kesa'],
+  ['reverse-kesa', 'Reverse Kesa Gatame', 'control', 'reverse scarf hold'],
+  ['twister-side', 'Twister Side Control', 'control', 'twister side'],
+  ['seatbelt', 'Seatbelt', 'control', 'seat belt'],
+  ['truck', 'The Truck', 'control', 'truck position'],
+  ['gift-wrap', 'Gift Wrap', 'control', 'gift wrapped'],
+  ['headquarters-pos', 'Headquarters Position', 'control', 'hq position'],
+  ['dogfight', 'Dogfight', 'control', 'dog fight'],
+  ['leg-drag-pos', 'Leg Drag Position', 'control', 'leg drag position'],
 ];
+
+/* Library metadata: syllabus level 1–5 (roughly white→black) drives the "next up"
+   suggestions. Anything absent defaults to 3 — see techLevel(). */
+const TECH_LVL = {
+  1: ['closed-guard', 'mount', 'side-control', 'back-control', 'shrimp-escape', 'bridge-roll',
+      'elbow-knee-escape', 'guard-recovery', 'mount-escape', 'side-escape', 'armbar', 'rnc',
+      'cross-collar', 'americana', 'kimura', 'scissor-sweep', 'hip-bump', 'flower-sweep',
+      'knee-cut', 'torreando', 'half-guard', 'turtle', 'double-leg', 'single-leg', 'guillotine',
+      'triangle', 'knee-on-belly', 'frame-and-shrimp', 'sweep', 'pass', 'takedown'],
+  2: ['butterfly-guard', 'open-guard', 'dlr', 'spider-guard', 'knee-shield', 'collar-sleeve',
+      'butterfly-sweep', 'tripod-sweep', 'elevator-sweep', 'old-school', 'over-under',
+      'double-under', 'leg-drag', 'stack-pass', 'long-step', 'headquarters', 'back-escape',
+      'north-south', 'north-south-choke', 'bow-arrow', 'ezekiel', 'arm-triangle', 'omoplata',
+      'ankle-lock', 'straight-armlock', 'osoto-gari', 'ankle-pick', 'arm-drag', 'snap-down',
+      'foot-sweep', 'sit-out', 'granby-roll', 'kob-escape', 'stack-escape', 'crucifix',
+      'front-headlock', 'seatbelt', 'kesa-gatame', 'dogfight', 'leg-drag-pos', 'headquarters-pos',
+      'wrist-lock', 'loop-choke', 'clock-choke', 'x-pass', 'smash-pass', 'body-lock-pass'],
+  3: ['deep-half', 'lasso', 'x-guard', 'rdlr', 'sit-up-guard', 'shin-to-shin', 'rubber-guard',
+      'x-sweep', 'lumberjack', 'john-wayne', 'waiter-sweep', 'dogfight-sweep', 'balloon-sweep',
+      'shin-to-shin-sweep', 'muscle-sweep', 'sumi-gaeshi', 'floating-pass', 'leg-weave',
+      'folding-pass', 'backstep', 'knee-shield-pass', 'tozi-pass', 'saulo-pass', 'pressure-pass',
+      'darce', 'anaconda', 'brabo-choke', 'paper-cutter', 'baseball-choke', 'lapel-choke',
+      'short-choke', 'mounted-triangle', 'belly-down-armbar', 'von-flue', 'bulldog-choke',
+      'kneebar', 'toe-hold', 'calf-slicer', 's-mount', 'technical-mount',
+      'reverse-kesa', 'gift-wrap', 'body-triangle', 'seoi-nage', 'uchi-mata', 'high-crotch',
+      'low-single', 'duck-under', 'ouchi-gari', 'kouchi-gari', 'knee-tap', 'russian-tie',
+      'body-lock-td', 'blast-double', 'ghost-escape', 'hip-heist', 'wrestle-up', 'turtle-recovery',
+      'north-south-escape', 'kipping-escape', 'leg-lock-escape'],
+  4: ['slx', 'k-guard', 'fifty-fifty', 'saddle', 'outside-ashi', 'octopus-guard', 'squid-guard',
+      'berimbolo', 'electric-chair', 'overhead-sweep', 'star-sweep', 'tornado-sweep',
+      'cartwheel-pass', 'heel-hook', 'outside-heel-hook', 'estima-lock', 'banana-split',
+      'knee-compression', 'bicep-slicer', 'peruvian-necktie', 'japanese-necktie', 'monoplata',
+      'baratoplata', 'tarikoplata', 'buggy-choke', 'crucifix-choke', 'rear-triangle', 'gogoplata',
+      'truck', 'twister-side', 'harai-goshi', 'tai-otoshi', 'tomoe-nage', 'drop-seoi',
+      'fireman-carry', 'can-opener'],
+  5: ['worm-guard', 'williams-guard', 'reverse-x', 'cross-ashi', 'kiss-of-dragon',
+      'inside-heel-hook', 'aoki-lock', 'twister'],
+};
+const TECH_LVL_BY_ID = (() => {
+  const m = {};
+  for (const [lvl, ids] of Object.entries(TECH_LVL)) for (const id of ids) m[id] = +lvl;
+  return m;
+})();
+function techLevel(id) { return TECH_LVL_BY_ID[id] || 3; }
 
 const TECHS = TECH_DEFS.map(d => ({ id: d[0], name: d[1], cat: d[2], aliases: [d[1].toLowerCase(), ...d.slice(3)] }));
 const TECH_BY_ID = Object.fromEntries(TECHS.map(t => [t.id, t]));
@@ -190,17 +334,24 @@ function parseNotes(raw) {
   const out = { techs: [], niggles: [], feel: 3, warmupPain: false, firsts: [] };
   if (!raw || !raw.trim()) return out;
 
-  /* techniques */
-  const claimed = new Set();
-  for (const t of TECHS) {
-    let best = null;
-    for (const alias of t.aliases) {
+  /* techniques
+     Longest alias first, and a match consumes its character range — otherwise
+     "inside heel hook" also scores Heel Hook, and "blast double" also scores
+     Double Leg. Whichever name covers more of the sentence is the one meant. */
+  const claimed = [];
+  const overlaps = (i, end) => claimed.some(([a, b]) => i < b && end > a);
+  const pairs = [];
+  for (const t of TECHS) for (const alias of t.aliases) pairs.push([t, alias]);
+  pairs.sort((a, b) => b[1].length - a[1].length);
+  const bestBy = new Map();
+  {
+    for (const [t, alias] of pairs) {
+      let best = bestBy.get(t.id) || null;
       const rx = new RegExp('\\b' + esc_rx(alias) + '\\b', 'g');
       let m;
       while ((m = rx.exec(text))) {
         const i = m.index, end = i + m[0].length;
-        const key = i + ':' + end;
-        if (claimed.has(key)) continue;
+        if (overlaps(i, end)) continue;
         const before = text.slice(Math.max(0, i - 46), i);
         const around = text.slice(Math.max(0, i - 46), Math.min(text.length, end + 30));
         const passive = /(?:ed|red)$/.test(alias) && alias !== t.name.toLowerCase(); // "armbarred"
@@ -235,10 +386,14 @@ function parseNotes(raw) {
         /* prefer 'hit' > 'conceded' > 'learned' > 'drilled' when merging same tech */
         const rank = { hit: 3, conceded: 2, learned: 1, drilled: 0 };
         if (!best || rank[cand.res] > rank[best.res] || (cand.res === best.res && cand.n > best.n)) best = cand;
-        claimed.add(key);
+        claimed.push([i, end]);
+        bestBy.set(t.id, best);
       }
     }
-    if (best) {
+    /* back to definition order so downstream ordering is stable */
+    for (const t of TECHS) {
+      const best = bestBy.get(t.id);
+      if (!best) continue;
       out.techs.push(best);
       if (best.first) out.firsts.push(t.id);
     }

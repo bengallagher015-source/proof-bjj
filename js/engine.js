@@ -20,6 +20,7 @@ function defaults() {
     seen: [],        // proof ids already celebrated
     focus: null,     // techId — this week's weapon
     lastLevel: 1,    // last level celebrated (level-up detection)
+    learned: {},     // techId -> ts, the library ticks
     demo: false,
     savedAt: 0,      // ms of last write — guards stale tabs (see saveState)
   };
@@ -439,9 +440,84 @@ function sessionMP(s) {
   if (s.notes && s.notes.length > 20) mp += 10;
   return mp;
 }
+/* ── the library: 184 moves, ticked off as they're learnt ── */
+/* state.learned is additive ({techId: ts}); absent means a fresh install or an old
+   backup, both of which should read as "nothing ticked yet", not as an error. */
+function learnedMap() { return (state.learned && typeof state.learned === 'object') ? state.learned : {}; }
+function isLearned(id) { return !!learnedMap()[id]; }
+function learnedCount() { return Object.keys(learnedMap()).length; }
+
+function setLearned(id, on) {
+  if (!state.learned || typeof state.learned !== 'object') state.learned = {};
+  if (on) {
+    if (state.learned[id]) return false;
+    state.learned[id] = Date.now();
+    /* ticking a move puts it straight into spaced repetition — the library feeds
+       the review queue rather than sitting beside it */
+    if (!state.recall[id]) {
+      const t = techById(id);
+      /* Spread a bulk tick-off across days rather than dumping 40 reviews on tomorrow —
+         recallDue() shows 6 at a time, so queue in batches of 6. */
+      const now = Date.now();
+      const pending = Object.values(state.recall).filter(r => r.due > now).length;
+      state.recall[id] = { stage: 0, due: now + DAY * (1 + Math.floor(pending / 6)), name: t ? t.name : id };
+    }
+  } else {
+    delete state.learned[id];
+  }
+  saveState();
+  return true;
+}
+
+/* Anything logged in a session counts as met, even if never ticked by hand. */
+function touchedIds() {
+  const s = new Set();
+  for (const sess of state.sessions) for (const t of (sess.techs || [])) s.add(t.id);
+  return s;
+}
+
+function libStats() {
+  const touched = touchedIds(), lm = learnedMap();
+  const cats = LIB_ORDER.map(cat => {
+    const all = TECHS.filter(t => t.cat === cat);
+    const done = all.filter(t => lm[t.id]).length;
+    return { cat, name: TECH_CATS[cat].pl, ico: TECH_CATS[cat].ico,
+             total: all.length, done, pct: all.length ? Math.round(done / all.length * 100) : 0 };
+  });
+  const total = TECHS.length, done = cats.reduce((n, c) => n + c.done, 0);
+  return { cats, total, done, pct: Math.round(done / total * 100),
+           untickedButTouched: [...touched].filter(id => !lm[id] && techById(id)).length };
+}
+
+/* The "next one" engine: unticked moves closest to the user's current depth, with
+   anything they've already hit in a session pushed to the front — that's the easiest
+   tick available and the one that feels most earned. */
+function nextUp(n = 3) {
+  const lm = learnedMap(), touched = touchedIds();
+  /* aim one notch above the deepest band they've mostly cleared */
+  let band = 1;
+  for (let l = 1; l <= 5; l++) {
+    const all = TECHS.filter(t => techLevel(t.id) === l);
+    const got = all.filter(t => lm[t.id]).length;
+    if (got >= all.length * 0.6) band = Math.min(5, l + 1); else { band = l; break; }
+  }
+  return TECHS
+    .filter(t => !lm[t.id])
+    .map(t => {
+      const lvl = techLevel(t.id);
+      let score = Math.abs(lvl - band) * 10;      /* closest to their band first */
+      if (touched.has(t.id)) score -= 25;          /* already hit it on the mat */
+      if (lvl < band) score -= 3;                  /* prefer filling gaps below */
+      return { ...t, lvl, touched: touched.has(t.id), score };
+    })
+    .sort((a, b) => a.score - b.score || a.lvl - b.lvl || a.name.localeCompare(b.name))
+    .slice(0, n);
+}
+
 function totalMP() {
   let mp = 0;
   for (const s of state.sessions) mp += sessionMP(s);
+  mp += learnedCount() * 20;   /* every move ticked off the library is worth MP */
   /* firsts pay extra (from proof feed so it matches what user saw) */
   for (const p of allProofs()) mp += p.kind === 'first' ? 40 : p.kind === 'vs' ? 0 : p.kind === 'mile' ? 25 : p.kind === 'trend' ? 60 : 15;
   for (const r of state.reviewLog) mp += r.grade === 'got' ? 15 : r.grade === 'fuzzy' ? 8 : 5;
