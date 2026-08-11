@@ -73,7 +73,10 @@ svg{display:block}
 
 /* ── app frame ───────────────────────────────────────────── */
 .app{max-width:var(--maxw); margin-inline:auto; min-height:100dvh; display:flex; flex-direction:column}
-.view{flex:1; padding:8px var(--pad) 150px; outline:none}
+/* Bottom gutter clears the tab bar AND the floating LOG button. The FAB's top edge sits
+   at 86px + its own height + the home-indicator inset, so that inset must be added here
+   too — without it the last card is stuck under the FAB on notched iPhones. */
+.view{flex:1; padding:8px var(--pad) calc(158px + env(safe-area-inset-bottom)); outline:none}
 
 /* ── topbar ──────────────────────────────────────────────── */
 .top{position:sticky; top:0; z-index:40;
@@ -269,7 +272,8 @@ svg{display:block}
   max-height:92dvh; display:flex; flex-direction:column}
 .sheet.on{transform:none}
 .sheet-grab{width:40px; height:4.5px; border-radius:3px; background:var(--line-2); margin:11px auto 2px; flex:none}
-.sheet-body{overflow-y:auto; overscroll-behavior:contain; padding:14px 20px calc(26px + env(safe-area-inset-bottom))}
+.sheet-body{overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch;
+  padding:14px 20px calc(26px + env(safe-area-inset-bottom))}
 .sheet h2{font-size:21px; letter-spacing:-.02em; margin-bottom:4px}
 .sheet .sub{color:var(--tx-2); font-size:13.5px; margin-bottom:18px}
 
@@ -391,12 +395,18 @@ svg{display:block}
   font:800 24px/1 var(--f-disp); color:var(--acc)}
 .you-hd h2{font-size:23px; letter-spacing:-.02em}
 .you-hd .tiny{margin-top:3px}
-.setrow{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 2px;
+.setrow{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:4px 2px;
   border-bottom:1px solid var(--line); font-size:14.5px}
 .setrow:last-child{border-bottom:0}
 .setrow .muted{font-size:13px}
-.setrow button{color:var(--acc); font:600 13px/1 var(--f-body)}
+/* 44px minimum touch target — these sit shoulder to shoulder with Reset, so a thumb
+   landing one row off must not be how someone erases their record */
+.setrow button{color:var(--acc); font:600 13px/1 var(--f-body);
+  min-height:44px; display:inline-flex; align-items:center; justify-content:flex-end;
+  padding:0 2px; text-align:right; flex:none}
 .danger{color:var(--bad)!important}
+.warn-inline{display:block; color:var(--warn); font:600 11.5px/1.3 var(--f-mono);
+  letter-spacing:.06em; text-transform:uppercase; margin-top:3px}
 
 /* ── toasts / burst ──────────────────────────────────────── */
 .toasts{position:fixed; left:50%; transform:translateX(-50%); bottom:calc(96px + env(safe-area-inset-bottom));

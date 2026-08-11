@@ -1,5 +1,7 @@
 /* PROOF service worker — cache-first shell for instant offline open */
-const CACHE = 'proof-v2';
+/* Bump on every shell change. Fetch is cache-first with no revalidation, so an unchanged
+   CACHE name means installed devices keep running the old bundle forever. */
+const CACHE = 'proof-v3';
 const SHELL = [
   './', 'index.html', 'css/style.css',
   'js/taxonomy.js', 'js/engine.js', 'js/ui.js', 'js/app.js',
@@ -21,7 +23,9 @@ self.addEventListener('fetch', e => {
           caches.open(CACHE).then(c => c.put(e.request, cp));
         }
         return res;
-      }).catch(() => caches.match('index.html'))
+      /* Only fall back to the shell for navigations — handing index.html to a failed
+         script/style request yields a syntax error instead of a clean offline failure. */
+      }).catch(() => (e.request.mode === 'navigate' ? caches.match('index.html') : Promise.reject(new Error('offline'))))
     )
   );
 });

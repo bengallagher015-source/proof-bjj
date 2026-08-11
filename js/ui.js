@@ -20,10 +20,10 @@ function applyBelt(belt) {
 }
 
 /* ── toast / burst / count-up ────────────────────────────── */
-function toast(msg) {
+function toast(msg, ms) {
   const w = $('#toasts'); const el = document.createElement('div');
   el.className = 'toast'; el.textContent = msg; w.appendChild(el);
-  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 260); }, 2400);
+  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 260); }, ms || 2400);
   while (w.children.length > 3) w.firstChild.remove();
 }
 function burst(x, y, n = 18) {
@@ -522,6 +522,7 @@ function renderRecall() {
 function renderYou() {
   const p = state.profile, L = lifetime(), rank = matRank();
   const focus = state.focus ? techById(state.focus) : null;
+  const snap = snapshotInfo();
   view().innerHTML = `
     <div class="you-hd">
       <div class="avatar">${esc((p.name || 'P')[0].toUpperCase())}</div>
@@ -553,9 +554,10 @@ function renderYou() {
       <div class="setrow"><span>Export backup</span><button id="expBtn">Download JSON</button></div>
       <div class="setrow"><span>Import backup</span><button id="impBtn">Choose file</button><input type="file" id="impFile" accept="application/json" hidden></div>
       ${state.demo
-        ? `<div class="setrow"><span>Demo data</span><button class="danger" id="clearDemo">Clear & start fresh</button></div>`
-        : `<div class="setrow"><span>Explore with demo data</span><button id="loadDemo">Load demo</button></div>`}
+        ? `<div class="setrow"><span>Demo data</span><button class="danger" id="clearDemo">Clear demo</button></div>`
+        : `<div class="setrow"><span>Explore with demo data${state.sessions.length ? ` <b class="warn-inline">replaces your ${state.sessions.length}</b>` : ''}</span><button id="loadDemo">Load demo</button></div>`}
       <div class="setrow"><span>Erase everything</span><button class="danger" id="nukeBtn">Reset</button></div>
+      ${snap ? `<div class="setrow"><span>Undo last replace<br><b class="tiny">${snap.n} sessions${snap.ts ? ' · ' + new Date(snap.ts).toLocaleDateString() : ''}</b></span><button id="undoBtn">Restore</button></div>` : ''}
     </div>
     <p class="tiny" style="text-align:center;padding:8px 0 20px">PROOF v2 — local-first, no account, your data never leaves this device.</p>`;
 
@@ -586,14 +588,36 @@ function renderYou() {
     const f = e.target.files[0]; if (!f) return;
     f.text().then(tx => {
       const d = JSON.parse(tx);
+      /* Validate everything the render path will touch BEFORE writing anything — a
+         throw after saveState() would report failure over already-destroyed data. */
       if (!d || d.v !== 1 || !Array.isArray(d.sessions)) throw 0;
-      if (!confirm(`Import ${d.sessions.length} sessions? Replaces what's here.`)) return;
-      state = d; saveState(); applyBelt(state.profile.belt); renderYou(); toast('Backup restored');
+      if (!d.profile || !d.profile.belt || !BELTS[d.profile.belt]) throw 0;
+      if (!confirm(`Import ${d.sessions.length} sessions? This replaces the ${state.sessions.length} on this device.`)) return;
+      snapshot();
+      state = Object.assign(defaults(), d);   /* merge over defaults: a file missing
+                                                 recall/seen/reviewLog must not brick */
+      saveState(true); applyBelt(state.profile.belt); renderYou(); toast('Backup restored');
     }).catch(() => toast('That file doesn’t look like a PROOF backup'));
   });
-  const ld = $('#loadDemo'); if (ld) ld.addEventListener('click', () => { seedDemo(); renderTab('home'); toast('Demo athlete loaded — poke around'); });
-  const cd = $('#clearDemo'); if (cd) cd.addEventListener('click', () => { if (confirm('Clear the demo data and start your own record?')) { resetAll(); renderTab('home'); toast('Fresh mats. Your story now.'); } });
-  $('#nukeBtn').addEventListener('click', () => { if (confirm('Erase ALL data on this device? No undo.')) { resetAll(); state.profile = null; saveState(); location.reload(); } });
+  const ld = $('#loadDemo'); if (ld) ld.addEventListener('click', () => {
+    const n = state.sessions.length;
+    if (n && !confirm(`This replaces your ${n} logged session${n > 1 ? 's' : ''} with a demo record.\n\nYou can undo it afterwards, but export a backup first if they matter.\n\nLoad demo anyway?`)) return;
+    seedDemo(); renderTab('home'); toast('Demo athlete loaded — poke around');
+  });
+  const cd = $('#clearDemo'); if (cd) cd.addEventListener('click', () => {
+    const mine = realSessions().length;
+    const msg = mine
+      ? `Remove the demo sessions and keep the ${mine} you logged yourself?`
+      : 'Clear the demo data and start your own record?';
+    if (confirm(msg)) { clearDemoOnly(); renderTab('home'); toast(mine ? `Demo cleared — your ${mine} kept` : 'Fresh mats. Your story now.'); }
+  });
+  $('#nukeBtn').addEventListener('click', () => { if (confirm('Erase ALL data on this device?\n\nRecoverable with "Undo last replace" until you erase again — but export a backup to be safe.')) { resetAll(); state.profile = null; saveState(true); location.reload(); } });
+  const ub = $('#undoBtn'); if (ub) ub.addEventListener('click', () => {
+    const s = snapshotInfo(); if (!s) return;
+    if (!confirm(`Restore the ${s.n} sessions from before the last replace? What's here now becomes the new undo point.`)) return;
+    if (restoreSnapshot()) { applyBelt(state.profile ? state.profile.belt : 'white'); renderTab('home'); toast(`Restored ${s.n} sessions`); }
+    else toast('Could not restore that snapshot');
+  });
 }
 
 /* ── LOG FLOW ────────────────────────────────────────────── */

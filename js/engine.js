@@ -6,28 +6,86 @@
    ══════════════════════════════════════════════════════════ */
 
 const KEY = 'proof-v1';
+const BAK = KEY + '-bak';          /* snapshot taken before anything replaces the record */
+const QUAR = KEY + '-quarantine';  /* a blob we could not read — kept, never overwritten */
 const DAY = 86400000;
 
-let state = {
-  v: 1,
-  profile: null,   // {name, belt, stripes, weeklyTarget, createdTs}
-  sessions: [],    // newest LAST (chronological)
-  recall: {},      // techId -> {stage, due, name}
-  reviewLog: [],   // [{ts, id, grade}] — fuels quests + MP
-  seen: [],        // proof ids already celebrated
-  focus: null,     // techId — this week's weapon
-  lastLevel: 1,    // last level celebrated (level-up detection)
-  demo: false,
-};
+function defaults() {
+  return {
+    v: 1,
+    profile: null,   // {name, belt, stripes, weeklyTarget, createdTs}
+    sessions: [],    // newest LAST (chronological)
+    recall: {},      // techId -> {stage, due, name}
+    reviewLog: [],   // [{ts, id, grade}] — fuels quests + MP
+    seen: [],        // proof ids already celebrated
+    focus: null,     // techId — this week's weapon
+    lastLevel: 1,    // last level celebrated (level-up detection)
+    demo: false,
+    savedAt: 0,      // ms of last write — guards stale tabs (see saveState)
+  };
+}
+let state = defaults();
+let quarantined = false;   /* boot found a blob it could not read */
 
 function loadState() {
-  try {
-    const d = JSON.parse(localStorage.getItem(KEY) || 'null');
-    if (d && d.v === 1) state = Object.assign(state, d);
-  } catch (e) { /* fresh */ }
+  let raw = null;
+  try { raw = localStorage.getItem(KEY); } catch (e) { return; }
+  if (!raw) return;
+  let d = null;
+  try { d = JSON.parse(raw); } catch (e) { d = null; }
+  if (d && d.v === 1 && Array.isArray(d.sessions)) { state = Object.assign(defaults(), d); return; }
+  /* Corrupt, or written by a newer PROOF than this bundle (a stale cached bundle must
+     never flatten newer data). Keep a copy before the app can save over the original. */
+  try { localStorage.setItem(QUAR, raw); } catch (e) { /* nothing more we can do */ }
+  quarantined = true;
 }
-function saveState() {
-  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* full/private */ }
+
+/* force = a deliberate wholesale replacement (import, restore, reset, demo), which is
+   allowed to land on top of a newer record because the user just asked for it. */
+function saveState(force) {
+  /* A tab that booted before another tab wrote holds a stale whole-blob copy. Re-read
+     the stamp and refuse to flatten a newer record — the user reloads to pick it up. */
+  if (!force) {
+    try {
+      const cur = JSON.parse(localStorage.getItem(KEY) || 'null');
+      if (cur && cur.savedAt && cur.savedAt > (state.savedAt || 0)) {
+        if (typeof toast === 'function') toast('Newer data saved in another tab — reload before logging here', 6000);
+        return false;
+      }
+    } catch (e) { /* unreadable; fall through to the write */ }
+  }
+  state.savedAt = Date.now();
+  try {
+    localStorage.setItem(KEY, JSON.stringify(state));
+    return true;
+  } catch (e) {
+    if (typeof toast === 'function') toast('⚠️ Not saved — storage full or private browsing. Export a backup.', 7000);
+    return false;
+  }
+}
+
+/* Copy the record aside before any path that replaces it wholesale. */
+function snapshot() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw && raw.length > 2) localStorage.setItem(BAK, raw);
+  } catch (e) { /* best effort */ }
+}
+function snapshotInfo() {
+  try {
+    const d = JSON.parse(localStorage.getItem(BAK) || 'null');
+    if (!d || !Array.isArray(d.sessions)) return null;
+    return { n: d.sessions.length, ts: d.savedAt || 0 };
+  } catch (e) { return null; }
+}
+function restoreSnapshot() {
+  try {
+    const d = JSON.parse(localStorage.getItem(BAK) || 'null');
+    if (!d || !Array.isArray(d.sessions)) return false;
+    snapshot();                      /* current record becomes the new undo point */
+    state = Object.assign(defaults(), d);
+    return saveState(true);
+  } catch (e) { return false; }
 }
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 function hasProfile() { return !!(state.profile && state.profile.belt); }
@@ -456,6 +514,7 @@ function weeklySeries(n = 12) {
 function mulberry(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 
 function seedDemo() {
+  snapshot();                        /* demo data replaces the record — keep an undo point */
   const rnd = mulberry(42);
   const pick = a => a[Math.floor(rnd() * a.length)];
   const now = Date.now();
@@ -505,7 +564,7 @@ function seedDemo() {
     if (rnd() < 0.12) niggles.push({ region: pick(['hand-r', 'hand-l', 'neck', 'shoulder-r']), sev: 1 });
     const feel = nHit > nCon ? (rnd() < 0.5 ? 4 : 5) : nCon > nHit + 1 ? 2 : 3;
     state.sessions.push({
-      id: uid(), ts: t, type, mins, rounds, intensity, feel,
+      id: uid(), ts: t, type, mins, rounds, intensity, feel, demo: 1,
       warmupPain: age < 8 && rnd() < 0.5,
       notes: pick(feel >= 4 ? notesBank.good : feel <= 2 ? notesBank.bad : notesBank.mid),
       techs, niggles,
@@ -525,10 +584,20 @@ function seedDemo() {
   state.seen = allProofs().slice(3).map(p => p.id); /* leave 3 fresh proofs to celebrate */
   state.lastLevel = Math.max(1, matRank().lvl - 1); /* one tasteful level-up on entry */
   state.demo = true;
-  saveState();
+  saveState(true);
 }
 function resetAll() {
+  snapshot();                        /* erasing is the one thing people most want back */
   const prof = state.profile;
-  state = { v: 1, profile: prof, sessions: [], recall: {}, reviewLog: [], seen: [], focus: null, lastLevel: 1, demo: false };
-  saveState();
+  state = Object.assign(defaults(), { profile: prof });
+  return saveState(true);
+}
+/* Drop only the seeded sessions. Anything the user logged on top of the demo stays —
+   the demo flag is sticky, so "start fresh" must not read as "erase your real work". */
+function realSessions() { return state.sessions.filter(s => !s.demo); }
+function clearDemoOnly() {
+  snapshot();
+  const kept = realSessions();
+  state = Object.assign(defaults(), { profile: state.profile, sessions: kept });
+  return saveState(true);
 }

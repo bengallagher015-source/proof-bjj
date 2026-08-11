@@ -7,6 +7,9 @@ let currentTab = 'home';
 function renderTab(tab) {
   currentTab = tab;
   document.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+  /* the LOG button sits over the bottom-right of the content; on You that is a column
+     of real action buttons, so it stands down there */
+  document.getElementById('fabLog').hidden = (tab === 'you');
   if (tab === 'home') renderHome();
   else if (tab === 'proof') renderProof();
   else if (tab === 'body') renderBody();
@@ -68,6 +71,11 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && !document.
 
 /* ── boot ────────────────────────────────────────────────── */
 loadState();
+if (quarantined) {
+  /* Unreadable, or written by a newer PROOF than this bundle. The blob was copied aside,
+     not lost — say so rather than dropping the user into onboarding as if they were new. */
+  setTimeout(() => toast('Saved data could not be read by this version — a copy was kept. Reload to try again.', 9000), 700);
+}
 if (hasProfile()) {
   document.getElementById('app').hidden = false;
   applyBelt(state.profile.belt);
