@@ -10,13 +10,45 @@ function renderTab(tab) {
   /* the LOG button sits over the bottom-right of the content; on You that is a column
      of real action buttons, so it stands down there */
   document.getElementById('fabLog').hidden = (tab === 'you');
-  if (tab === 'home') renderHome();
-  else if (tab === 'proof') renderProof();
-  else if (tab === 'body') renderBody();
-  else if (tab === 'recall') renderRecall();
-  else if (tab === 'you') renderYou();
+  try {
+    if (tab === 'home') renderHome();
+    else if (tab === 'proof') renderProof();
+    else if (tab === 'body') renderBody();
+    else if (tab === 'recall') renderRecall();
+    else if (tab === 'you') renderYou();
+  } catch (e) {
+    /* A record shape this build can't render must never leave someone staring at a
+       blank app with no route to their backup — every recovery control lives here. */
+    renderRecovery(e);
+  }
   view().scrollTop = 0;
   window.scrollTo(0, 0);
+}
+
+function renderRecovery(err) {
+  const snap = (typeof snapshotInfo === 'function' && snapshotInfo()) || null;
+  view().innerHTML = `
+    <div class="card" style="margin-top:20px">
+      <div class="card-hd"><h3>Something in your record won't display</h3></div>
+      <p class="tiny" style="margin:6px 0 16px">Your data is still on this device — this screen just can't draw it.
+      Export it first, then try undoing the last change.</p>
+      <div class="setrow"><span>Export everything</span><button id="rcExp">Download JSON</button></div>
+      ${snap ? `<div class="setrow"><span>Undo last replace<br><b class="tiny">${snap.n} sessions</b></span><button id="rcUndo">Restore</button></div>` : ''}
+      <div class="setrow"><span>Start over (last resort)</span><button class="danger" id="rcReset">Reset</button></div>
+      <p class="tiny" style="margin-top:14px;opacity:.6">${String(err && err.message || err).slice(0, 140)}</p>
+    </div>`;
+  const ex = document.getElementById('rcExp');
+  if (ex) ex.addEventListener('click', () => {
+    const blob = new Blob([localStorage.getItem('proof-v1') || '{}'], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'proof-rescue.json'; a.click(); URL.revokeObjectURL(a.href);
+  });
+  const un = document.getElementById('rcUndo');
+  if (un) un.addEventListener('click', () => { if (restoreSnapshot()) location.reload(); });
+  const rs = document.getElementById('rcReset');
+  if (rs) rs.addEventListener('click', () => {
+    if (confirm('Erase everything and start clean? Export first if you have not.')) { resetAll(); state.profile = null; saveState(true); location.reload(); }
+  });
 }
 function switchTab(tab) { renderTab(tab); }
 

@@ -523,6 +523,7 @@ function renderYou() {
   const p = state.profile, L = lifetime(), rank = matRank();
   const focus = state.focus ? techById(state.focus) : null;
   const snap = snapshotInfo();
+  const quar = quarantineInfo();
   view().innerHTML = `
     <div class="you-hd">
       <div class="avatar">${esc((p.name || 'P')[0].toUpperCase())}</div>
@@ -557,7 +558,8 @@ function renderYou() {
         ? `<div class="setrow"><span>Demo data</span><button class="danger" id="clearDemo">Clear demo</button></div>`
         : `<div class="setrow"><span>Explore with demo data${state.sessions.length ? ` <b class="warn-inline">replaces your ${state.sessions.length}</b>` : ''}</span><button id="loadDemo">Load demo</button></div>`}
       <div class="setrow"><span>Erase everything</span><button class="danger" id="nukeBtn">Reset</button></div>
-      ${snap ? `<div class="setrow"><span>Undo last replace<br><b class="tiny">${snap.n} sessions${snap.ts ? ' · ' + new Date(snap.ts).toLocaleDateString() : ''}</b></span><button id="undoBtn">Restore</button></div>` : ''}
+      ${snap ? `<div class="setrow"><span>Undo last replace<br><b class="tiny">${snap.n} sessions${snap.real && snap.real !== snap.n ? ` (${snap.real} yours)` : ''}${snap.ts ? ' · ' + new Date(snap.ts).toLocaleDateString() : ''}${snap.more ? ` · ${snap.more} older kept` : ''}</b></span><button id="undoBtn">Restore</button></div>` : ''}
+      ${quar ? `<div class="setrow"><span>Unreadable data found<br><b class="tiny">${quar.n} sessions from a newer version</b></span><button id="quarBtn">Recover</button></div>` : ''}
     </div>
     <p class="tiny" style="text-align:center;padding:8px 0 20px">PROOF v2 — local-first, no account, your data never leaves this device.</p>`;
 
@@ -590,8 +592,7 @@ function renderYou() {
       const d = JSON.parse(tx);
       /* Validate everything the render path will touch BEFORE writing anything — a
          throw after saveState() would report failure over already-destroyed data. */
-      if (!d || d.v !== 1 || !Array.isArray(d.sessions)) throw 0;
-      if (!d.profile || !d.profile.belt || !BELTS[d.profile.belt]) throw 0;
+      if (!validRecord(d)) throw 0;
       if (!confirm(`Import ${d.sessions.length} sessions? This replaces the ${state.sessions.length} on this device.`)) return;
       snapshot();
       state = Object.assign(defaults(), d);   /* merge over defaults: a file missing
@@ -612,6 +613,12 @@ function renderYou() {
     if (confirm(msg)) { clearDemoOnly(); renderTab('home'); toast(mine ? `Demo cleared — your ${mine} kept` : 'Fresh mats. Your story now.'); }
   });
   $('#nukeBtn').addEventListener('click', () => { if (confirm('Erase ALL data on this device?\n\nRecoverable with "Undo last replace" until you erase again — but export a backup to be safe.')) { resetAll(); state.profile = null; saveState(true); location.reload(); } });
+  const qb = $('#quarBtn'); if (qb) qb.addEventListener('click', () => {
+    const q = quarantineInfo(); if (!q) return;
+    if (!confirm(`Recover ${q.n} sessions saved by a newer version of PROOF? Anything currently here becomes an undo point.`)) return;
+    if (recoverQuarantine()) { applyBelt(state.profile ? state.profile.belt : 'white'); renderTab('home'); toast(`Recovered ${q.n} sessions`); }
+    else toast('Could not read that copy — export it from the newer device instead', 6000);
+  });
   const ub = $('#undoBtn'); if (ub) ub.addEventListener('click', () => {
     const s = snapshotInfo(); if (!s) return;
     if (!confirm(`Restore the ${s.n} sessions from before the last replace? What's here now becomes the new undo point.`)) return;
@@ -759,6 +766,12 @@ function saveDraft() {
   const mpBefore = totalMP();
   const questsBefore = questsFor().filter(q => q.done).map(q => q.id);
   const fresh = addSession(sess);
+  if (!lastSaveOK) {
+    /* The write did not land. Do not run the recap — telling someone "+120 MP" for a
+       session that is not on disk is worse than telling them nothing. */
+    toast('⚠️ This session did NOT save. Export a backup, then log it again.', 9000);
+    return;
+  }
   markProofsSeen(fresh.map(x => x.id));
   const mpAfter = totalMP();
   const questsAfter = questsFor().filter(q => q.done);

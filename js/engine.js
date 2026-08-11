@@ -26,6 +26,7 @@ function defaults() {
 }
 let state = defaults();
 let quarantined = false;   /* boot found a blob it could not read */
+let lastSaveOK = true;     /* false when the most recent write did not land */
 
 function loadState() {
   let raw = null;
@@ -50,39 +51,109 @@ function saveState(force) {
       const cur = JSON.parse(localStorage.getItem(KEY) || 'null');
       if (cur && cur.savedAt && cur.savedAt > (state.savedAt || 0)) {
         if (typeof toast === 'function') toast('Newer data saved in another tab — reload before logging here', 6000);
-        return false;
+        return (lastSaveOK = false);
       }
     } catch (e) { /* unreadable; fall through to the write */ }
   }
   state.savedAt = Date.now();
   try {
     localStorage.setItem(KEY, JSON.stringify(state));
-    return true;
+    return (lastSaveOK = true);
   } catch (e) {
     if (typeof toast === 'function') toast('⚠️ Not saved — storage full or private browsing. Export a backup.', 7000);
-    return false;
+    return (lastSaveOK = false);
   }
 }
 
-/* Copy the record aside before any path that replaces it wholesale. */
+/* Everything the render path will touch, checked before a single byte is written.
+   Array.isArray(sessions) alone is not enough — one null in the array throws in
+   lifetime() AFTER the save, which bricks every tab and strands the undo button. */
+function validRecord(d) {
+  if (!d || d.v !== 1 || !Array.isArray(d.sessions)) return false;
+  if (!d.profile || !d.profile.belt || !BELTS[d.profile.belt]) return false;
+  if (!d.sessions.every(s => s && typeof s === 'object' && typeof s.ts === 'number' &&
+      (s.techs == null || Array.isArray(s.techs)) && (s.niggles == null || Array.isArray(s.niggles)))) return false;
+  if (d.recall != null && (typeof d.recall !== 'object' || Array.isArray(d.recall))) return false;
+  if (d.reviewLog != null && !Array.isArray(d.reviewLog)) return false;
+  if (d.seen != null && !Array.isArray(d.seen)) return false;
+  return true;
+}
+
+/* Copy the record aside before any path that replaces it wholesale.
+   A RING, not one slot: two destructive taps in a row (load demo, then clear demo)
+   would otherwise leave the only undo point holding demo data, with the real record
+   gone for good. When trimming, demo-only snapshots are evicted before real ones. */
+const BAK_MAX = 4;
+function readBaks() {
+  try {
+    const a = JSON.parse(localStorage.getItem(BAK) || '[]');
+    return Array.isArray(a) ? a.filter(b => b && Array.isArray(b.sessions)) : [];
+  } catch (e) { return []; }
+}
+function realCount(sessions) { return sessions.filter(s => s && !s.demo).length; }
+
 function snapshot() {
   try {
-    const raw = localStorage.getItem(KEY);
-    if (raw && raw.length > 2) localStorage.setItem(BAK, raw);
-  } catch (e) { /* best effort */ }
+    const d = JSON.parse(localStorage.getItem(KEY) || 'null');
+    if (!d || !Array.isArray(d.sessions) || !d.sessions.length) return;
+    const list = readBaks();
+    /* don't stack duplicates of the same record */
+    if (list[0] && list[0].savedAt === d.savedAt && list[0].sessions.length === d.sessions.length) return;
+    list.unshift(d);
+    while (list.length > BAK_MAX) {
+      /* evict the oldest snapshot that holds no real sessions; if they all do, the oldest */
+      let i = list.length - 1;
+      for (let j = list.length - 1; j > 0; j--) if (!realCount(list[j].sessions)) { i = j; break; }
+      list.splice(i, 1);
+    }
+    localStorage.setItem(BAK, JSON.stringify(list));
+  } catch (e) { /* best effort — quota, private mode */ }
+}
+/* A blob this bundle could not read is kept under QUAR. Give it a way back — otherwise
+   it sits in storage under a key no phone user can reach. */
+function quarantineInfo() {
+  try {
+    const d = JSON.parse(localStorage.getItem(QUAR) || 'null');
+    if (!d || !Array.isArray(d.sessions) || !d.sessions.length) return null;
+    return { n: d.sessions.length, v: d.v };
+  } catch (e) { return null; }
+}
+function recoverQuarantine() {
+  try {
+    const d = JSON.parse(localStorage.getItem(QUAR) || 'null');
+    if (!d || !Array.isArray(d.sessions)) return false;
+    /* Down-convert to what this bundle understands, keeping every session. */
+    const salvaged = Object.assign(defaults(), d, { v: 1 });
+    salvaged.sessions = d.sessions.filter(s => s && typeof s === 'object' && typeof s.ts === 'number');
+    if (!validRecord(salvaged)) return false;
+    snapshot();
+    state = salvaged;
+    if (!saveState(true)) return false;
+    try { localStorage.removeItem(QUAR); } catch (e) {}
+    return true;
+  } catch (e) { return false; }
+}
+
+/* Offer the newest snapshot that still holds real sessions, so the demo can never
+   bury the user's own record behind it. */
+function bestSnapshotIdx() {
+  const list = readBaks();
+  if (!list.length) return -1;
+  const i = list.findIndex(b => realCount(b.sessions) > 0);
+  return i === -1 ? 0 : i;
 }
 function snapshotInfo() {
-  try {
-    const d = JSON.parse(localStorage.getItem(BAK) || 'null');
-    if (!d || !Array.isArray(d.sessions)) return null;
-    return { n: d.sessions.length, ts: d.savedAt || 0 };
-  } catch (e) { return null; }
+  const list = readBaks(); const i = bestSnapshotIdx();
+  if (i < 0) return null;
+  const d = list[i];
+  return { n: d.sessions.length, real: realCount(d.sessions), ts: d.savedAt || 0, more: list.length - 1 };
 }
 function restoreSnapshot() {
   try {
-    const d = JSON.parse(localStorage.getItem(BAK) || 'null');
-    if (!d || !Array.isArray(d.sessions)) return false;
-    snapshot();                      /* current record becomes the new undo point */
+    const list = readBaks(); const i = bestSnapshotIdx();
+    if (i < 0) return false;
+    const d = list[i];
+    snapshot();                      /* current record joins the ring before we leave it */
     state = Object.assign(defaults(), d);
     return saveState(true);
   } catch (e) { return false; }
