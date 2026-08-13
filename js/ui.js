@@ -459,7 +459,7 @@ function shadowDrill(techName, onDone) {
 }
 function renderRecall() {
   const due = recallDue(), ars = arsenal();
-  const lib = libStats(), next = nextUp(3);
+  const lib = libStats(), next = nextUp(3), tree = treeStats();
   const IVL_TX = ['tomorrow', 'in 3 days', 'in a week', 'in 3 weeks', 'in 2 months'];
   view().innerHTML = `
     <div class="aurora">
@@ -486,6 +486,11 @@ function renderRecall() {
     <div class="card enter" style="margin-top:6px">
       <div class="card-hd"><h3>The library</h3><span class="tiny">${lib.done} / ${lib.total} learnt</span></div>
       <div class="lib-bar"><i style="width:${lib.pct}%"></i></div>
+      <button class="bm-open" id="openMap">
+        <span class="bm-open-svg">${miniMapSVG()}</span>
+        <span class="bm-open-tx"><b>Open the map</b><span>${tree.learnt} of ${tree.total} lit · ${tree.open} ready to unlock</span></span>
+        <span class="bm-open-go">→</span>
+      </button>
       <p class="tiny" style="margin:8px 0 14px">${lib.done === 0
         ? 'Every move in jiu-jitsu, in one list. Tick what you know — the rest becomes your map.'
         : lib.untickedButTouched
@@ -553,6 +558,195 @@ function renderRecall() {
     renderRecall(); checkLevelUp();
   }));
   view().querySelectorAll('[data-cat]').forEach(b => b.addEventListener('click', () => openLibrary(b.dataset.cat)));
+  const om = $('#openMap'); if (om) om.addEventListener('click', () => openBrainMap());
+}
+
+/* Thumbnail of the real graph for the card — same layout, no labels, so the button
+   shows the user their own map rather than a generic icon. */
+function miniMapSVG() {
+  const L = treeLayout();
+  const edges = L.edges.map(([a, b]) => {
+    const p = L.nodes[a], c = L.nodes[b];
+    const on = nodeState(a) === 'learnt' && nodeState(b) === 'learnt';
+    return `<line x1="${p.x.toFixed(0)}" y1="${p.y.toFixed(0)}" x2="${c.x.toFixed(0)}" y2="${c.y.toFixed(0)}" class="${on ? 'mm-on' : 'mm-off'}"/>`;
+  }).join('');
+  const dots = Object.values(L.nodes).map(n => {
+    const s = nodeState(n.id);
+    return `<circle cx="${n.x.toFixed(0)}" cy="${n.y.toFixed(0)}" r="${n.depth === 1 ? 34 : n.leaf ? 13 : 20}" class="mm-${s}"/>`;
+  }).join('');
+  return `<svg viewBox="${L.minX} ${L.minY} ${L.w} ${L.h}" class="minimap" aria-hidden="true">${edges}${dots}</svg>`;
+}
+
+/* ── the brain map ───────────────────────────────────────────
+   181 moves, every one hanging off the thing that teaches it. Roots in the middle,
+   the art growing outward. Synapses dim until the move before them is learnt. */
+let mapView = null;   /* {k, tx, ty} — zoom + pan, kept across re-renders */
+
+function openBrainMap(focusId) {
+  const L = treeLayout();
+  const wrap = document.getElementById('mega');
+  wrap.hidden = false;
+  wrap.className = 'mega brainmap';
+  requestAnimationFrame(() => wrap.classList.add('on'));   /* .mega starts at opacity 0 */
+  wrap.innerHTML = `
+    <div class="bm-top">
+      <div class="bm-title"><b>The map</b><span id="bmCount"></span></div>
+      <button class="bm-x" id="bmClose" aria-label="Close map">✕</button>
+    </div>
+    <svg id="bmSvg" viewBox="${L.minX} ${L.minY} ${L.w} ${L.h}" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <radialGradient id="bmGlow"><stop offset="0" stop-color="var(--acc)" stop-opacity=".55"/><stop offset="1" stop-color="var(--acc)" stop-opacity="0"/></radialGradient>
+        <filter id="bmBlur" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="7"/></filter>
+      </defs>
+      <g id="bmEdges"></g>
+      <g id="bmNodes"></g>
+    </svg>
+    <div class="bm-legend">
+      <span><i class="s-learnt"></i>learnt</span>
+      <span><i class="s-open"></i>unlocked</span>
+      <span><i class="s-locked"></i>locked</span>
+    </div>
+    <div class="bm-card" id="bmCard" hidden></div>`;
+
+  const svg = document.getElementById('bmSvg');
+  const gE = document.getElementById('bmEdges'), gN = document.getElementById('bmNodes');
+
+  const paint = () => {
+    const st = treeStats();
+    document.getElementById('bmCount').textContent = `${st.learnt} / ${st.total} · ${st.open} ready`;
+    /* edges first so nodes sit on top */
+    gE.innerHTML = L.edges.map(([a, b]) => {
+      const p = L.nodes[a], c = L.nodes[b];
+      const sa = nodeState(a), sc = nodeState(b);
+      const cls = sa === 'learnt' && sc === 'learnt' ? 'e-on' : sa === 'learnt' ? 'e-half' : 'e-off';
+      /* bend through a point on the parent's angle at the child's radius — reads as a
+         dendrite rather than a straight spoke */
+      const mx = Math.cos(p.a) * c.r, my = Math.sin(p.a) * c.r;
+      return `<path class="bm-e ${cls}" d="M${p.x.toFixed(1)} ${p.y.toFixed(1)} Q${mx.toFixed(1)} ${my.toFixed(1)} ${c.x.toFixed(1)} ${c.y.toFixed(1)}"/>`;
+    }).join('');
+
+    gN.innerHTML = Object.values(L.nodes).map(n => {
+      const t = techById(n.id), s = nodeState(n.id);
+      const rad = n.depth === 1 ? 24 : n.leaf ? 10 : 14 + Math.min(n.kids, 6);
+      /* Hubs and anything already lit stay labelled at every zoom; the long tail of
+         leaves only labels once you've zoomed in, or the middle turns to soup. */
+      const always = s === 'learnt' || n.depth <= 2 || n.kids >= 3;
+      const lbl = always ? 'bm-t' : (s === 'open' || n.kids ? 'bm-t far' : '');
+      return `<g class="bm-n ${s}${focusId === n.id ? ' focus' : ''}" data-node="${n.id}" transform="translate(${n.x.toFixed(1)} ${n.y.toFixed(1)})">
+        ${s !== 'locked' ? `<circle class="bm-halo" r="${rad * 2.6}" fill="url(#bmGlow)"/>` : ''}
+        <circle class="bm-hit" r="${Math.max(rad + 16, 30)}"/>
+        <circle class="bm-dot" r="${rad}"/>
+        ${lbl ? `<text class="${lbl}" y="${n.si % 2 ? -(rad + 14) : rad + 28}">${esc(t.name)}</text>` : ''}
+      </g>`;
+    }).join('');
+
+    gN.querySelectorAll('[data-node]').forEach(g => g.addEventListener('click', e => {
+      e.stopPropagation(); showNodeCard(g.dataset.node, paint);
+    }));
+  };
+  paint();
+
+  /* ── pan + pinch zoom ── */
+  /* The whole map is ~2900 units across; showing all of it on a phone would make the
+     labels unreadable. Open at a span that's comfortable to read and let people pull
+     back for the overview. */
+  const SPAN = 780;
+  const fit = Math.min(svg.clientWidth || 375, svg.clientHeight || 700) / L.w;  /* preserveAspectRatio meet */
+  const k0 = (Math.min(svg.clientWidth || 375, svg.clientHeight || 700) / SPAN) / fit;
+  if (!mapView) {
+    mapView = { k: k0, tx: 0, ty: 0 };
+    if (focusId && L.nodes[focusId]) {
+      mapView.tx = -L.nodes[focusId].x * k0 * fit;
+      mapView.ty = -L.nodes[focusId].y * k0 * fit;
+    }
+  }
+  const apply = () => {
+    svg.style.transform = `translate(${mapView.tx}px,${mapView.ty}px) scale(${mapView.k})`;
+    svg.classList.toggle('zoomed', mapView.k > k0 * 1.25);
+  };
+  apply();
+
+  let drag = null, pinch = null;
+  const pt = e => ({ x: e.touches ? e.touches[0].clientX : e.clientX, y: e.touches ? e.touches[0].clientY : e.clientY });
+  const dist = e => Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+
+  const down = e => {
+    if (e.touches && e.touches.length === 2) { pinch = { d: dist(e), k: mapView.k }; drag = null; return; }
+    const p = pt(e); drag = { x: p.x - mapView.tx, y: p.y - mapView.ty, moved: 0 };
+  };
+  const move = e => {
+    if (pinch && e.touches && e.touches.length === 2) {
+      e.preventDefault();
+      mapView.k = Math.max(.45, Math.min(4, pinch.k * (dist(e) / pinch.d)));
+      apply(); return;
+    }
+    if (!drag) return;
+    e.preventDefault();
+    const p = pt(e);
+    drag.moved += Math.abs(p.x - mapView.tx - drag.x) + Math.abs(p.y - mapView.ty - drag.y);
+    mapView.tx = p.x - drag.x; mapView.ty = p.y - drag.y;
+    apply();
+  };
+  const up = () => { pinch = null; drag = null; };
+
+  svg.addEventListener('mousedown', down); svg.addEventListener('touchstart', down, { passive: true });
+  window.addEventListener('mousemove', move); svg.addEventListener('touchmove', move, { passive: false });
+  window.addEventListener('mouseup', up); svg.addEventListener('touchend', up);
+  svg.addEventListener('wheel', e => {
+    e.preventDefault();
+    mapView.k = Math.max(.45, Math.min(4, mapView.k * (e.deltaY > 0 ? 0.9 : 1.1)));
+    apply();
+  }, { passive: false });
+
+  document.getElementById('bmClose').addEventListener('click', closeBrainMap);
+  wrap.addEventListener('click', e => {
+    if (e.target === wrap || e.target === svg) document.getElementById('bmCard').hidden = true;
+  });
+}
+
+function closeBrainMap() {
+  const wrap = document.getElementById('mega');
+  wrap.hidden = true; wrap.className = 'mega'; wrap.innerHTML = '';
+  renderRecall();
+}
+
+function showNodeCard(id, repaint) {
+  const t = techById(id), s = nodeState(id), pre = preOf(id), kids = childrenOf(id);
+  const card = document.getElementById('bmCard');
+  const preName = pre ? techById(pre).name : null;
+  card.hidden = false;
+  card.innerHTML = `
+    <div class="bm-c-hd">
+      <span class="bm-c-ico">${TECH_CATS[t.cat].ico}</span>
+      <div><b>${esc(t.name)}</b><span>${TECH_CATS[t.cat].name} · ${BELTS[BELT_ORDER[techLevel(id) - 1]].name.toLowerCase()} belt</span></div>
+    </div>
+    <p class="bm-c-p">${s === 'learnt'
+      ? (kids.length ? `Learnt. It opens ${kids.length} move${kids.length > 1 ? 's' : ''}: ${kids.slice(0, 3).map(k => esc(techById(k).name)).join(', ')}${kids.length > 3 ? '…' : ''}` : 'Learnt. End of this branch.')
+      : s === 'open'
+        ? (kids.length ? `Ready to learn — ticking it opens ${kids.length} more.` : 'Ready to learn.')
+        : `Locked behind <b>${esc(preName)}</b>. Learn that first.`}</p>
+    ${s === 'locked'
+      ? `<button class="btn ghost small" data-goto="${pre}">Show me ${esc(preName)}</button>`
+      : `<button class="btn small" data-tick2="${id}">${s === 'learnt' ? 'Un-tick' : 'Mark learnt'}</button>`}`;
+
+  const b = card.querySelector('[data-tick2]');
+  if (b) b.addEventListener('click', () => {
+    const on = nodeState(id) !== 'learnt';
+    setLearned(id, on);
+    if (on) {
+      const el = document.querySelector(`[data-node="${id}"] .bm-dot`);
+      if (el) { const r = el.getBoundingClientRect(); burst(r.left + r.width / 2, r.top + r.height / 2, 14); }
+      const n = childrenOf(id).length;
+      toast(n ? `${t.name} learnt · ${n} new move${n > 1 ? 's' : ''} unlocked` : `${t.name} learnt`, 3200);
+    }
+    repaint(); showNodeCard(id, repaint); checkLevelUp();
+  });
+  const g = card.querySelector('[data-goto]');
+  if (g) g.addEventListener('click', () => {
+    const L = treeLayout(), n = L.nodes[g.dataset.goto];
+    if (n) { mapView.tx = -n.x * mapView.k; mapView.ty = -n.y * mapView.k; document.getElementById('bmSvg').style.transform = `translate(${mapView.tx}px,${mapView.ty}px) scale(${mapView.k})`; }
+    showNodeCard(g.dataset.goto, repaint);
+  });
 }
 
 /* Full move list for one category — tick as you go. */

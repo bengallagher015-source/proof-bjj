@@ -275,6 +275,166 @@ const TECH_LVL_BY_ID = (() => {
 })();
 function techLevel(id) { return TECH_LVL_BY_ID[id] || 3; }
 
+/* Catch-all parser entries ("Sweep (general)") — real for logging, not things you
+   learn, so they stay out of the library count and the skill tree. */
+const TECH_GENERIC = new Set(['sweep', 'pass', 'takedown']);
+
+/* ── the skill tree ──────────────────────────────────────────
+   One parent each, so the whole art renders as a tree rather than a hairball.
+   Two roots, which is the honest shape of it: you start on the ground or you
+   start on your feet. Parents cross categories on purpose — Armbar hangs off
+   Closed Guard, Darce off Front Headlock — that's what makes it one map. */
+const TECH_PRE = {
+  /* ── roots ── */
+  'closed-guard': null,          /* ground */
+  'double-leg': null,            /* standing */
+
+  /* guards */
+  'half-guard': 'closed-guard', 'open-guard': 'closed-guard', 'turtle': 'closed-guard',
+  'rubber-guard': 'closed-guard', 'butterfly-guard': 'open-guard', 'spider-guard': 'open-guard',
+  'dlr': 'open-guard', 'collar-sleeve': 'open-guard', 'sit-up-guard': 'open-guard',
+  'knee-shield': 'half-guard', 'deep-half': 'half-guard', 'octopus-guard': 'half-guard',
+  'williams-guard': 'knee-shield', 'lasso': 'spider-guard', 'squid-guard': 'spider-guard',
+  'worm-guard': 'lasso', 'rdlr': 'dlr', 'k-guard': 'dlr', 'x-guard': 'butterfly-guard',
+  'shin-to-shin': 'butterfly-guard', 'slx': 'x-guard', 'reverse-x': 'x-guard',
+  'fifty-fifty': 'slx', 'saddle': 'slx', 'outside-ashi': 'slx', 'cross-ashi': 'fifty-fifty',
+
+  /* passes */
+  'torreando': 'open-guard', 'knee-cut': 'torreando', 'x-pass': 'torreando',
+  'floating-pass': 'torreando', 'toreando-bullfight': 'torreando', 'stack-pass': 'torreando',
+  'double-under': 'stack-pass', 'over-under': 'double-under', 'smash-pass': 'knee-cut',
+  'long-step': 'knee-cut', 'backstep': 'knee-cut', 'leg-drag': 'knee-cut',
+  'headquarters': 'knee-cut', 'folding-pass': 'headquarters', 'leg-weave': 'knee-cut',
+  'knee-shield-pass': 'knee-cut', 'body-lock-pass': 'smash-pass', 'pressure-pass': 'smash-pass',
+  'tozi-pass': 'body-lock-pass', 'saulo-pass': 'pressure-pass', 'cartwheel-pass': 'x-pass',
+
+  /* positions */
+  'side-control': 'knee-cut', 'mount': 'side-control', 'knee-on-belly': 'side-control',
+  'north-south': 'side-control', 'kesa-gatame': 'side-control', 'twister-side': 'side-control',
+  'reverse-kesa': 'kesa-gatame', 's-mount': 'mount', 'technical-mount': 'mount',
+  'back-control': 'technical-mount', 'seatbelt': 'back-control', 'body-triangle': 'back-control',
+  'gift-wrap': 'back-control', 'crucifix': 'back-control', 'truck': 'crucifix',
+  'leg-drag-pos': 'leg-drag', 'headquarters-pos': 'headquarters', 'dogfight': 'knee-shield',
+  'front-headlock': 'snap-down',
+
+  /* sweeps */
+  'scissor-sweep': 'closed-guard', 'hip-bump': 'closed-guard', 'flower-sweep': 'scissor-sweep',
+  'muscle-sweep': 'hip-bump', 'balloon-sweep': 'flower-sweep', 'butterfly-sweep': 'butterfly-guard',
+  'elevator-sweep': 'butterfly-guard', 'sumi-gaeshi': 'butterfly-sweep', 'x-sweep': 'x-guard',
+  'tripod-sweep': 'open-guard', 'lumberjack': 'tripod-sweep', 'old-school': 'half-guard',
+  'john-wayne': 'old-school', 'dogfight-sweep': 'dogfight', 'electric-chair': 'dogfight-sweep',
+  'waiter-sweep': 'deep-half', 'berimbolo': 'rdlr', 'kiss-of-dragon': 'rdlr',
+  'tornado-sweep': 'sit-up-guard', 'overhead-sweep': 'sit-up-guard', 'star-sweep': 'sit-up-guard',
+  'shin-to-shin-sweep': 'shin-to-shin',
+
+  /* submissions */
+  'armbar': 'closed-guard', 'triangle': 'closed-guard', 'cross-collar': 'closed-guard',
+  'kimura': 'closed-guard', 'guillotine': 'closed-guard', 'wrist-lock': 'closed-guard',
+  'can-opener': 'closed-guard', 'straight-armlock': 'armbar', 'belly-down-armbar': 'armbar',
+  'omoplata': 'triangle', 'mounted-triangle': 'triangle', 'monoplata': 'omoplata',
+  'baratoplata': 'omoplata', 'tarikoplata': 'omoplata', 'gogoplata': 'rubber-guard',
+  'bicep-slicer': 'rubber-guard', 'americana': 'side-control', 'paper-cutter': 'side-control',
+  'brabo-choke': 'side-control', 'buggy-choke': 'side-escape', 'arm-triangle': 'mount',
+  'ezekiel': 'mount', 'north-south-choke': 'north-south', 'baseball-choke': 'knee-on-belly',
+  'von-flue': 'guillotine', 'darce': 'front-headlock', 'anaconda': 'front-headlock',
+  'peruvian-necktie': 'front-headlock', 'japanese-necktie': 'front-headlock',
+  'bulldog-choke': 'front-headlock', 'rnc': 'back-control', 'bow-arrow': 'back-control',
+  'short-choke': 'back-control', 'rear-triangle': 'back-control', 'clock-choke': 'turtle',
+  'loop-choke': 'collar-sleeve', 'lapel-choke': 'collar-sleeve', 'crucifix-choke': 'crucifix',
+  'twister': 'truck',
+
+  /* leg locks */
+  'ankle-lock': 'open-guard', 'calf-slicer': 'ankle-lock', 'toe-hold': 'ankle-lock',
+  'kneebar': 'ankle-lock', 'estima-lock': 'ankle-lock', 'heel-hook': 'outside-ashi',
+  'outside-heel-hook': 'heel-hook', 'inside-heel-hook': 'saddle', 'aoki-lock': 'inside-heel-hook',
+  'banana-split': 'saddle', 'knee-compression': 'saddle',
+
+  /* escapes */
+  'shrimp-escape': 'closed-guard', 'frame-and-shrimp': 'shrimp-escape',
+  'bridge-roll': 'shrimp-escape', 'elbow-knee-escape': 'shrimp-escape',
+  'side-escape': 'frame-and-shrimp', 'mount-escape': 'bridge-roll',
+  'guard-recovery': 'elbow-knee-escape', 'back-escape': 'mount-escape',
+  'kipping-escape': 'mount-escape', 'kob-escape': 'side-escape', 'ghost-escape': 'side-escape',
+  'north-south-escape': 'side-escape', 'stack-escape': 'guard-recovery',
+  'granby-roll': 'turtle', 'turtle-recovery': 'granby-roll', 'sit-out': 'turtle',
+  'hip-heist': 'sit-out', 'wrestle-up': 'sit-up-guard', 'leg-lock-escape': 'ankle-lock',
+
+  /* takedowns */
+  'single-leg': 'double-leg', 'blast-double': 'double-leg', 'snap-down': 'double-leg',
+  'foot-sweep': 'double-leg', 'body-lock-td': 'double-leg', 'high-crotch': 'single-leg',
+  'low-single': 'single-leg', 'ankle-pick': 'single-leg', 'knee-tap': 'single-leg',
+  'fireman-carry': 'high-crotch', 'arm-drag': 'snap-down', 'russian-tie': 'arm-drag',
+  'duck-under': 'russian-tie', 'seoi-nage': 'arm-drag', 'drop-seoi': 'seoi-nage',
+  'tai-otoshi': 'seoi-nage', 'osoto-gari': 'foot-sweep', 'tomoe-nage': 'foot-sweep',
+  'ouchi-gari': 'osoto-gari', 'kouchi-gari': 'osoto-gari', 'uchi-mata': 'osoto-gari',
+  'harai-goshi': 'uchi-mata',
+};
+function preOf(id) { return Object.prototype.hasOwnProperty.call(TECH_PRE, id) ? TECH_PRE[id] : null; }
+function childrenOf(id) { return TECHS.filter(t => preOf(t.id) === id).map(t => t.id); }
+
+/* Radial layout — roots near the middle, everything growing outward, each subtree
+   given an angular wedge proportional to how much of the art hangs off it. The
+   seeded jitter is what stops it reading as a clock face and starts it reading as
+   a brain: dendrites, not spokes. Pure + deterministic, so it's cached once. */
+let _layout = null;
+function treeLayout() {
+  if (_layout) return _layout;
+  const RING = 132;
+  const real = TECHS.filter(t => !TECH_GENERIC.has(t.id));
+  const kids = {};
+  for (const t of real) { const p = preOf(t.id); if (p) (kids[p] = kids[p] || []).push(t.id); }
+  for (const k in kids) kids[k].sort();
+  const roots = real.filter(t => preOf(t.id) === null).map(t => t.id);
+
+  const leafMemo = {};
+  const leaves = id => leafMemo[id] || (leafMemo[id] = (kids[id] && kids[id].length)
+    ? kids[id].reduce((n, c) => n + leaves(c), 0) : 1);
+  /* stable per-id pseudo-random in [0,1) */
+  const h = s => { let x = 2166136261; for (let i = 0; i < s.length; i++) { x ^= s.charCodeAt(i); x = Math.imul(x, 16777619); } return ((x >>> 0) % 10000) / 10000; };
+
+  const nodes = {}, edges = [];
+  const place = (id, a0, a1, depth, si) => {
+    const a = (a0 + a1) / 2;
+    const r = depth * RING + (h(id) - 0.5) * RING * 0.42;
+    nodes[id] = { id, depth, a, r, si, x: Math.cos(a) * r, y: Math.sin(a) * r,
+                  kids: (kids[id] || []).length, leaf: !(kids[id] || []).length };
+    const cs = kids[id] || [];
+    if (!cs.length) return;
+    /* Pure leaf-count weighting starves the childless siblings of a big hub — Closed
+       Guard's 14 children end up stacked on top of each other. Blend toward equal
+       shares near the middle, where arc length is scarcest. */
+    const tot = cs.reduce((n, c) => n + leaves(c), 0);
+    const prop = depth <= 2 ? 0.5 : depth === 3 ? 0.75 : 0.9;
+    let cur = a0;
+    cs.forEach((c, i) => {
+      const frac = prop * (leaves(c) / tot) + (1 - prop) / cs.length;
+      const span = (a1 - a0) * frac;
+      place(c, cur, cur + span, depth + 1, i);
+      edges.push([id, c]);
+      cur += span;
+    });
+  };
+  const totLeaves = roots.reduce((n, r) => n + leaves(r), 0);
+  let cur = -Math.PI / 2;
+  roots.forEach((r, i) => {
+    const span = Math.PI * 2 * leaves(r) / totLeaves;
+    place(r, cur, cur + span, 1, i);
+    cur += span;
+  });
+
+  let minX = 0, maxX = 0, minY = 0, maxY = 0;
+  for (const id in nodes) {
+    const n = nodes[id];
+    minX = Math.min(minX, n.x); maxX = Math.max(maxX, n.x);
+    minY = Math.min(minY, n.y); maxY = Math.max(maxY, n.y);
+  }
+  /* Symmetric viewBox around the origin so the roots sit dead centre when the map
+     opens — the bounding box is lopsided and would otherwise park them off-screen. */
+  const R = Math.max(Math.abs(minX), Math.abs(maxX), Math.abs(minY), Math.abs(maxY)) + 140;
+  _layout = { nodes, edges, roots, R, minX: -R, minY: -R, w: R * 2, h: R * 2 };
+  return _layout;
+}
+
 const TECHS = TECH_DEFS.map(d => ({ id: d[0], name: d[1], cat: d[2], aliases: [d[1].toLowerCase(), ...d.slice(3)] }));
 const TECH_BY_ID = Object.fromEntries(TECHS.map(t => [t.id, t]));
 function techById(id) { return TECH_BY_ID[id]; }

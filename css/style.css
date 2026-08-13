@@ -443,6 +443,95 @@ svg{display:block}
   letter-spacing:.1em; text-transform:uppercase; color:var(--acc);
   background:var(--acc-soft); border:1px solid var(--acc-line); border-radius:5px; padding:3px 5px}
 
+/* ── brain map ───────────────────────────────────────────── */
+.bm-open{display:flex; align-items:center; gap:13px; width:100%; text-align:left; margin:14px 0 4px;
+  padding:12px 14px 12px 12px; border-radius:16px; position:relative; overflow:hidden;
+  background:linear-gradient(135deg, var(--acc-soft), transparent 70%), var(--ink-3);
+  border:1px solid var(--acc-line); transition:transform .2s var(--spring)}
+.bm-open:active{transform:scale(.98)}
+.bm-open-svg{width:58px; height:58px; flex:none; border-radius:13px; overflow:hidden;
+  background:radial-gradient(circle at 50% 50%, var(--ink-4), var(--ink)); display:grid; place-items:center}
+.minimap{width:100%; height:100%}
+.minimap line{stroke-width:5}
+.minimap .mm-off{stroke:var(--line-2); opacity:.5}
+.minimap .mm-on{stroke:var(--acc); opacity:.9}
+.minimap .mm-locked{fill:var(--line-2)}
+.minimap .mm-open{fill:var(--acc); opacity:.55}
+.minimap .mm-learnt{fill:var(--acc)}
+.bm-open-tx{flex:1; min-width:0; display:block}
+.bm-open-tx b{display:block; font:700 15px/1.2 var(--f-disp); letter-spacing:-.01em}
+.bm-open-tx span{display:block; font-size:12px; color:var(--tx-2); margin-top:3px}
+.bm-open-go{color:var(--acc); font-size:19px; flex:none}
+
+.mega.brainmap{padding:0; background:radial-gradient(120% 90% at 50% 40%, #0d1119, #05070a 70%);
+  backdrop-filter:none; -webkit-backdrop-filter:none; place-items:stretch; overflow:hidden}
+.brainmap #bmSvg{position:absolute; inset:0; width:100%; height:100%;
+  transform-origin:50% 50%; touch-action:none; cursor:grab}
+.brainmap #bmSvg:active{cursor:grabbing}
+
+.bm-top{position:absolute; top:0; left:0; right:0; z-index:3; display:flex; align-items:center;
+  justify-content:space-between; gap:12px; padding:calc(12px + env(safe-area-inset-top)) 16px 12px;
+  background:linear-gradient(180deg, rgba(5,7,10,.92), transparent); pointer-events:none}
+.bm-title{pointer-events:none}
+.bm-title b{display:block; font:800 17px/1 var(--f-disp); letter-spacing:.02em}
+.bm-title span{display:block; font:600 11px/1 var(--f-mono); letter-spacing:.1em;
+  text-transform:uppercase; color:var(--acc); margin-top:5px}
+.bm-x{pointer-events:auto; width:40px; height:40px; flex:none; border-radius:50%; font-size:15px;
+  color:var(--tx-2); background:rgba(255,255,255,.07); border:1px solid var(--line-2);
+  backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px)}
+
+/* synapses */
+.bm-e{fill:none; stroke-linecap:round}
+.bm-e.e-off{stroke:#1e2531; stroke-width:2}
+.bm-e.e-half{stroke:var(--acc); stroke-width:2.4; opacity:.34}
+.bm-e.e-on{stroke:var(--acc); stroke-width:3.4; opacity:.85; filter:drop-shadow(0 0 6px var(--acc-line))}
+
+/* nodes */
+.bm-n{cursor:pointer}
+.bm-hit{fill:transparent}
+.bm-dot{stroke-width:2.5; transition:fill .25s, stroke .25s}
+.bm-n.locked .bm-dot{fill:#141a24; stroke:#242c3a}
+.bm-n.locked .bm-t{fill:var(--tx-3); opacity:.5}
+.bm-n.open .bm-dot{fill:var(--ink-3); stroke:var(--acc);
+  animation:bmPulse 2.4s var(--ease) infinite}
+.bm-n.open .bm-t{fill:var(--tx)}
+.bm-n.learnt .bm-dot{fill:var(--acc); stroke:var(--acc);
+  filter:drop-shadow(0 0 10px var(--acc-line))}
+.bm-n.learnt .bm-t{fill:var(--tx)}
+.bm-halo{pointer-events:none}
+.bm-n.locked .bm-halo{display:none}
+/* font-size is in SVG user units, not CSS px — at the default span this lands
+   around 12px on screen */
+.bm-t{text-anchor:middle; font-family:var(--f-body); font-weight:600; font-size:23px;
+  paint-order:stroke; stroke:#05070a; stroke-width:7px; stroke-linejoin:round;
+  pointer-events:none}
+.bm-t.far{opacity:0; transition:opacity .2s}
+#bmSvg.zoomed .bm-t.far{opacity:1}
+.bm-n.focus .bm-dot{stroke-width:4}
+@keyframes bmPulse{0%,100%{stroke-opacity:1}50%{stroke-opacity:.4}}
+@media (prefers-reduced-motion:reduce){.bm-n.open .bm-dot{animation:none}}
+
+.bm-legend{position:absolute; left:0; right:0; bottom:calc(10px + env(safe-area-inset-bottom));
+  z-index:3; display:flex; justify-content:center; gap:16px; pointer-events:none}
+.bm-legend span{display:flex; align-items:center; gap:6px; font:600 10px/1 var(--f-mono);
+  letter-spacing:.1em; text-transform:uppercase; color:var(--tx-3)}
+.bm-legend i{width:9px; height:9px; border-radius:50%; border:2px solid}
+.bm-legend .s-learnt{background:var(--acc); border-color:var(--acc)}
+.bm-legend .s-open{background:transparent; border-color:var(--acc)}
+.bm-legend .s-locked{background:#141a24; border-color:#242c3a}
+
+.bm-card{position:absolute; left:12px; right:12px; bottom:calc(46px + env(safe-area-inset-bottom));
+  z-index:4; max-width:420px; margin-inline:auto; padding:15px 16px 16px; border-radius:20px;
+  background:rgba(20,25,34,.93); border:1px solid var(--line-2); box-shadow:var(--sh-3);
+  backdrop-filter:blur(16px) saturate(1.4); -webkit-backdrop-filter:blur(16px) saturate(1.4);
+  animation:tIn .3s var(--spring)}
+.bm-c-hd{display:flex; align-items:center; gap:11px; margin-bottom:9px}
+.bm-c-ico{font-size:20px; line-height:1}
+.bm-c-hd b{display:block; font:700 17px/1.15 var(--f-disp); letter-spacing:-.01em}
+.bm-c-hd span{display:block; font-size:12px; color:var(--tx-2); margin-top:2px}
+.bm-c-p{font-size:13.5px; line-height:1.5; color:var(--tx-2); margin-bottom:13px}
+.bm-c-p b{color:var(--tx)}
+
 /* ── you tab ─────────────────────────────────────────────── */
 .you-hd{display:flex; align-items:center; gap:15px; padding:8px 0 18px}
 .avatar{width:62px; height:62px; border-radius:50%; flex:none; display:grid; place-items:center;

@@ -1,7 +1,7 @@
 /* PROOF service worker — cache-first shell for instant offline open */
 /* Bump on every shell change. Fetch is cache-first with no revalidation, so an unchanged
    CACHE name means installed devices keep running the old bundle forever. */
-const CACHE = 'proof-v4';
+const CACHE = 'proof-v5';
 const SHELL = [
   './', 'index.html', 'css/style.css',
   'js/taxonomy.js', 'js/engine.js', 'js/ui.js', 'js/app.js',

@@ -28,6 +28,10 @@ function defaults() {
 let state = defaults();
 let quarantined = false;   /* boot found a blob it could not read */
 let lastSaveOK = true;     /* false when the most recent write did not land */
+/* The savedAt of the record this session's state descends from. Anything newer than
+   this on disk was written by another tab. Infinity = we deliberately do not descend
+   from what's stored (quarantined it), so we're free to write over it. */
+let baseline = 0;
 
 function loadState() {
   let raw = null;
@@ -35,11 +39,16 @@ function loadState() {
   if (!raw) return;
   let d = null;
   try { d = JSON.parse(raw); } catch (e) { d = null; }
-  if (d && d.v === 1 && Array.isArray(d.sessions)) { state = Object.assign(defaults(), d); return; }
+  if (d && d.v === 1 && Array.isArray(d.sessions)) {
+    state = Object.assign(defaults(), d);
+    baseline = d.savedAt || 0;
+    return;
+  }
   /* Corrupt, or written by a newer PROOF than this bundle (a stale cached bundle must
      never flatten newer data). Keep a copy before the app can save over the original. */
   try { localStorage.setItem(QUAR, raw); } catch (e) { /* nothing more we can do */ }
   quarantined = true;
+  baseline = Infinity;   /* copy kept — this session may now own the key */
 }
 
 /* force = a deliberate wholesale replacement (import, restore, reset, demo), which is
@@ -50,7 +59,7 @@ function saveState(force) {
   if (!force) {
     try {
       const cur = JSON.parse(localStorage.getItem(KEY) || 'null');
-      if (cur && cur.savedAt && cur.savedAt > (state.savedAt || 0)) {
+      if (cur && cur.savedAt && cur.savedAt > baseline) {
         if (typeof toast === 'function') toast('Newer data saved in another tab — reload before logging here', 6000);
         return (lastSaveOK = false);
       }
@@ -59,6 +68,7 @@ function saveState(force) {
   state.savedAt = Date.now();
   try {
     localStorage.setItem(KEY, JSON.stringify(state));
+    baseline = state.savedAt;
     return (lastSaveOK = true);
   } catch (e) {
     if (typeof toast === 'function') toast('⚠️ Not saved — storage full or private browsing. Export a backup.', 7000);
@@ -476,15 +486,39 @@ function touchedIds() {
   return s;
 }
 
+/* ── skill-tree node states ──────────────────────────────── */
+/* A move is open when its prerequisite is done (or it's a root); everything deeper
+   stays locked. That's the whole pull of the map — one tick lights up the next. */
+function nodeState(id) {
+  if (isLearned(id)) return 'learnt';
+  const p = preOf(id);
+  return (p === null || isLearned(p)) ? 'open' : 'locked';
+}
+function treeStats() {
+  const real = TECHS.filter(t => !TECH_GENERIC.has(t.id));
+  let learnt = 0, open = 0;
+  const openIds = [];
+  for (const t of real) {
+    const s = nodeState(t.id);
+    if (s === 'learnt') learnt++;
+    else if (s === 'open') { open++; openIds.push(t.id); }
+  }
+  return { total: real.length, learnt, open, openIds,
+           pct: Math.round(learnt / real.length * 100) };
+}
+/* How much of the map a single tick would light up — used to sell the next node. */
+function unlocksBy(id) { return childrenOf(id).length; }
+
 function libStats() {
   const touched = touchedIds(), lm = learnedMap();
   const cats = LIB_ORDER.map(cat => {
-    const all = TECHS.filter(t => t.cat === cat);
+    const all = TECHS.filter(t => t.cat === cat && !TECH_GENERIC.has(t.id));
     const done = all.filter(t => lm[t.id]).length;
     return { cat, name: TECH_CATS[cat].pl, ico: TECH_CATS[cat].ico,
              total: all.length, done, pct: all.length ? Math.round(done / all.length * 100) : 0 };
   });
-  const total = TECHS.length, done = cats.reduce((n, c) => n + c.done, 0);
+  const total = TECHS.filter(t => !TECH_GENERIC.has(t.id)).length;
+  const done = cats.reduce((n, c) => n + c.done, 0);
   return { cats, total, done, pct: Math.round(done / total * 100),
            untickedButTouched: [...touched].filter(id => !lm[id] && techById(id)).length };
 }
@@ -502,13 +536,14 @@ function nextUp(n = 3) {
     if (got >= all.length * 0.6) band = Math.min(5, l + 1); else { band = l; break; }
   }
   return TECHS
-    .filter(t => !lm[t.id])
+    .filter(t => !lm[t.id] && !TECH_GENERIC.has(t.id) && nodeState(t.id) === 'open')
     .map(t => {
       const lvl = techLevel(t.id);
       let score = Math.abs(lvl - band) * 10;      /* closest to their band first */
       if (touched.has(t.id)) score -= 25;          /* already hit it on the mat */
       if (lvl < band) score -= 3;                  /* prefer filling gaps below */
-      return { ...t, lvl, touched: touched.has(t.id), score };
+      score -= Math.min(unlocksBy(t.id), 5) * 2;   /* nodes that open more of the map */
+      return { ...t, lvl, touched: touched.has(t.id), unlocks: unlocksBy(t.id), score };
     })
     .sort((a, b) => a.score - b.score || a.lvl - b.lvl || a.name.localeCompare(b.name))
     .slice(0, n);
