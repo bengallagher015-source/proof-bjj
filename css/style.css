@@ -7,15 +7,15 @@
 
 /* ── belt themes ─────────────────────────────────────────── */
 :root{
-  --ink:#0a0d12;          /* page */
-  --ink-2:#10141b;        /* card */
-  --ink-3:#161b24;        /* raised */
-  --ink-4:#1f2530;        /* input / pressed */
-  --line:#232a36;
-  --line-2:#303948;
-  --tx:#f2f3f5;
-  --tx-2:#9aa3b2;
-  --tx-3:#66707f;
+  --ink:#070910;          /* page */
+  --ink-2:#0d1119;        /* card */
+  --ink-3:#141926;        /* raised */
+  --ink-4:#1d2431;        /* input / pressed */
+  --line:#1f2634;
+  --line-2:#2d3646;
+  --tx:#f5f7fa;
+  --tx-2:#a6b0c0;
+  --tx-3:#6d7887;
   --good:#4ade80;
   --warn:#f5b13d;
   --bad:#f4655f;
@@ -24,14 +24,16 @@
   --f-body:'Inter', ui-sans-serif, system-ui, sans-serif;
   --f-mono:'Spline Sans Mono', ui-monospace, SFMono-Regular, monospace;
 
-  --r:18px; --r-sm:12px; --r-lg:26px;
+  --r:21px; --r-sm:14px; --r-lg:28px;
   --pad:18px;
   --maxw:560px;
   --spring:cubic-bezier(.32,1.4,.38,1);
   --ease:cubic-bezier(.22,1,.36,1);
-  --sh-1:0 1px 2px rgba(0,0,0,.5);
-  --sh-2:0 12px 32px -14px rgba(0,0,0,.8);
-  --sh-3:0 30px 70px -24px rgba(0,0,0,.9);
+  /* layered rather than one flat drop — a close contact shadow plus a wide soft one */
+  --sh-1:0 1px 2px rgba(0,0,0,.55), 0 6px 18px -10px rgba(0,0,0,.7);
+  --sh-2:0 2px 6px rgba(0,0,0,.5), 0 18px 40px -18px rgba(0,0,0,.85);
+  --sh-3:0 4px 14px rgba(0,0,0,.5), 0 34px 80px -26px rgba(0,0,0,.92);
+  --rim:inset 0 1px 0 rgba(255,255,255,.055);
 }
 :root[data-belt="white"]{ --acc:#e9e6dd; --acc-ink:#14171d; --acc-soft:rgba(233,230,221,.13); --acc-line:rgba(233,230,221,.34); --acc-2:#cfd6e2; }
 :root[data-belt="blue"]{  --acc:#5b96f7; --acc-ink:#071120; --acc-soft:rgba(91,150,247,.15); --acc-line:rgba(91,150,247,.4);  --acc-2:#8ab8ff; }
@@ -125,26 +127,28 @@ svg{display:block}
 .fab:active{transform:scale(.96)}
 
 /* ── cards ───────────────────────────────────────────────── */
-.card{background:linear-gradient(180deg, var(--ink-3), var(--ink-2) 60%);
-  border:1px solid var(--line); border-radius:var(--r); padding:18px;
-  box-shadow:var(--sh-1), inset 0 1px 0 rgba(255,255,255,.045);
+.card{background:linear-gradient(168deg, var(--ink-3), var(--ink-2) 62%);
+  border:1px solid var(--line); border-radius:var(--r); padding:19px 18px;
+  box-shadow:var(--sh-1), var(--rim);
   margin-bottom:14px; position:relative; overflow:hidden}
 .card.enter{animation:cardIn .5s var(--spring) both}
 @keyframes cardIn{from{opacity:0; transform:translateY(14px) scale(.98)}}
-.card-hd{display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:14px}
-.card-hd h3{font-size:16px; font-weight:700}
-.card-hd a,.card-hd button.link{font:600 12px/1 var(--f-mono); letter-spacing:.08em; text-transform:uppercase; color:var(--acc); text-decoration:none}
-.kicker{font:700 10.5px/1 var(--f-mono); letter-spacing:.18em; text-transform:uppercase; color:var(--tx-3); margin-bottom:8px}
+.card-hd{display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:15px}
+.card-hd h3{font-size:17px; font-weight:700; letter-spacing:-.02em}
+.card-hd a,.card-hd button.link{font:600 12px/1 var(--f-mono); letter-spacing:.06em; color:var(--acc); text-decoration:none}
+/* quieter than it was — these sit above headlines and were shouting over them */
+.kicker{font:600 10px/1 var(--f-mono); letter-spacing:.15em; text-transform:uppercase;
+  color:var(--tx-3); opacity:.85; margin-bottom:9px}
 
 /* ── hero stats (home) ───────────────────────────────────── */
 .hero-num{font:800 clamp(44px,13vw,58px)/0.95 var(--f-disp); letter-spacing:-.04em}
 .hero-num small{font-size:.38em; font-weight:700; letter-spacing:0; color:var(--tx-2); margin-left:4px}
 .statgrid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px}
-.stat{background:var(--ink-2); border:1px solid var(--line); border-radius:var(--r-sm);
-  padding:13px 12px 11px; text-align:left}
-.stat b{display:block; font:800 24px/1 var(--f-disp); letter-spacing:-.02em; margin-bottom:4px}
+.stat{background:linear-gradient(168deg, var(--ink-3), var(--ink-2)); border:1px solid var(--line);
+  border-radius:var(--r-sm); box-shadow:var(--rim); padding:14px 13px 12px; text-align:left}
+.stat b{display:block; font:800 25px/1 var(--f-disp); letter-spacing:-.03em; margin-bottom:5px}
 .stat b em{font-style:normal; font-size:.55em; color:var(--tx-2); font-weight:700}
-.stat span{font:600 9.5px/1.3 var(--f-mono); letter-spacing:.12em; text-transform:uppercase; color:var(--tx-3)}
+.stat span{font:600 9.5px/1.3 var(--f-mono); letter-spacing:.1em; text-transform:uppercase; color:var(--tx-3)}
 
 /* week ring row */
 .week-row{display:flex; align-items:center; gap:16px}
@@ -255,9 +259,14 @@ svg{display:block}
 .tech-row:last-child{border-bottom:0}
 .tech-cat{width:38px; height:38px; flex:none; border-radius:11px; display:grid; place-items:center;
   background:var(--ink-4); font-size:16px}
-.tech-nm b{display:block; font:700 14px/1.2 var(--f-disp)}
-.tech-nm span{font:500 11px/1.4 var(--f-mono); color:var(--tx-3)}
-.tech-n{margin-left:auto; text-align:right}
+/* min-width:0 lets the flex child actually shrink; without it the mono meta line
+   forces the row wider than the card and wraps mid-phrase */
+.tech-nm{min-width:0; flex:1}
+.tech-nm b{display:block; font:700 14px/1.2 var(--f-disp);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.tech-nm span{display:block; font:500 10.5px/1.4 var(--f-mono); color:var(--tx-3);
+  letter-spacing:-.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.tech-n{margin-left:auto; text-align:right; flex:none; white-space:nowrap}
 .tech-n b{font:700 15px/1 var(--f-mono); color:var(--acc)}
 .tech-n span{display:block; font:500 9.5px/1.4 var(--f-mono); color:var(--tx-3); letter-spacing:.08em}
 
@@ -483,19 +492,22 @@ svg{display:block}
   transform-origin:50% 50%; touch-action:none; cursor:grab}
 .brainmap #bmSvg:active{cursor:grabbing}
 
-.bm-top{position:absolute; top:0; left:0; right:0; z-index:3; display:flex; align-items:center;
-  justify-content:space-between; gap:12px; padding:calc(12px + env(safe-area-inset-top)) 16px 12px;
-  background:linear-gradient(180deg, rgba(5,7,10,.92), transparent); pointer-events:none}
+/* The tree scrolls under this, so the scrim has to be opaque at the top and fade
+   properly, not just tint — labels were reading straight through it. */
+.bm-top{position:absolute; top:0; left:0; right:0; z-index:3; display:flex; align-items:flex-start;
+  justify-content:space-between; gap:12px; padding:calc(12px + env(safe-area-inset-top)) 16px 26px;
+  pointer-events:none;
+  background:linear-gradient(180deg, #04060a 0%, rgba(4,6,10,.96) 42%, rgba(4,6,10,.82) 66%, transparent)}
 .bm-title{pointer-events:none}
 .bm-title b{display:block; font:800 17px/1 var(--f-disp); letter-spacing:.02em}
-.bm-title span{display:block; font:600 11px/1 var(--f-mono); letter-spacing:.1em;
+.bm-title>span{display:block; font:600 11px/1 var(--f-mono); letter-spacing:.1em;
   text-transform:uppercase; color:var(--acc); margin-top:5px}
 .bm-x{pointer-events:auto; width:40px; height:40px; flex:none; border-radius:50%; font-size:15px;
   color:var(--tx-2); background:rgba(255,255,255,.07); border:1px solid var(--line-2);
   backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px)}
 
-/* depth rings — a faint floor under the void */
-.bm-ring{fill:none; stroke:#141b26; stroke-width:1.5; opacity:.75}
+/* one rule per depth, so you can feel how far out you've travelled */
+.bm-ring{stroke:#141b26; stroke-width:1.5; opacity:.6}
 
 /* synapses */
 .bm-e{fill:none; stroke-linecap:round}
@@ -538,17 +550,17 @@ svg{display:block}
 }
 /* font-size is in SVG user units, not CSS px — at the default span this lands
    around 12px on screen */
-.bm-t{text-anchor:middle; font-family:var(--f-body); font-weight:600; font-size:23px;
-  paint-order:stroke; stroke:#05070a; stroke-width:7px; stroke-linejoin:round;
-  pointer-events:none}
-.bm-t.far{opacity:0; transition:opacity .2s}
-#bmSvg.zoomed .bm-t.far{opacity:1}
+/* Labels sit to the right of their node, in a row nothing else occupies.
+   font-size is SVG user units — lands around 12px at the default span. */
+.bm-t{text-anchor:start; dominant-baseline:central; font-family:var(--f-body);
+  font-weight:600; font-size:27px; paint-order:stroke; stroke:#05070a;
+  stroke-width:6px; stroke-linejoin:round; pointer-events:none}
+.bm-t.far{opacity:.42}
 
-.bm-legend{position:absolute; left:0; right:0; bottom:calc(10px + env(safe-area-inset-bottom));
-  z-index:3; display:flex; justify-content:center; gap:16px; pointer-events:none}
-.bm-legend span{display:flex; align-items:center; gap:6px; font:600 10px/1 var(--f-mono);
-  letter-spacing:.1em; text-transform:uppercase; color:var(--tx-3)}
-.bm-legend i{width:9px; height:9px; border-radius:50%; border:2px solid}
+.bm-legend{display:flex!important; gap:13px; margin-top:9px}
+.bm-legend span{display:flex; align-items:center; gap:5px; font:600 9.5px/1 var(--f-mono)!important;
+  letter-spacing:.09em; text-transform:uppercase; color:var(--tx-3)!important; margin-top:0!important}
+.bm-legend i{width:8px; height:8px; border-radius:50%; border:2px solid; flex:none}
 /* neutral — on the map itself colour means category, not state */
 .bm-legend .s-learnt{background:#dfe4ec; border-color:#dfe4ec; box-shadow:0 0 7px rgba(223,228,236,.8)}
 .bm-legend .s-open{background:transparent; border-color:#8b95a6}
@@ -626,7 +638,11 @@ svg{display:block}
 .rank-badge::after{content:""; position:absolute; inset:-4px; border-radius:19px; border:1.5px solid var(--acc-line); opacity:.6}
 .rank-tx{flex:1; min-width:0}
 .rank-tx b{display:block; font:800 17px/1.15 var(--f-disp); letter-spacing:-.01em; margin-bottom:2px}
-.rank-tx span{font:500 11px/1 var(--f-mono); color:var(--tx-3); letter-spacing:.06em}
+/* one line, never wrapping — "to next" drops to its own line rather than breaking
+   mid-phrase, which is what the old single-string version did at 375px */
+.rank-tx span{display:flex; flex-wrap:wrap; align-items:baseline; gap:0 7px;
+  font:500 11px/1.5 var(--f-mono); color:var(--tx-3); letter-spacing:.06em}
+.rank-tx span em{flex-basis:100%; font-style:normal; color:var(--tx-3); opacity:.75}
 .xp{height:7px; border-radius:4px; background:var(--ink-4); overflow:hidden; margin-top:8px}
 .xp i{display:block; height:100%; border-radius:4px; width:0;
   background:linear-gradient(90deg, var(--acc-2), var(--acc));

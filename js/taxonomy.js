@@ -379,14 +379,16 @@ const TECH_PRE = {
 function preOf(id) { return Object.prototype.hasOwnProperty.call(TECH_PRE, id) ? TECH_PRE[id] : null; }
 function childrenOf(id) { return TECHS.filter(t => preOf(t.id) === id).map(t => t.id); }
 
-/* Radial layout — roots near the middle, everything growing outward, each subtree
-   given an angular wedge proportional to how much of the art hangs off it. The
-   seeded jitter is what stops it reading as a clock face and starts it reading as
-   a brain: dendrites, not spokes. Pure + deterministic, so it's cached once. */
+/* Indented outline tree — one row per move, depth as indent, read top to bottom.
+   Two earlier attempts are worth recording so they don't get retried: a radial fan
+   put labels in each other's way at every zoom, and a centred tidy tree left enormous
+   voids near the roots (a root owning 107 leaves spreads its children the full height
+   of the canvas). Indenting spends every row, gives each label a lane of its own, and
+   scrolls the way a phone already wants to. Cached; pure. */
 let _layout = null;
 function treeLayout() {
   if (_layout) return _layout;
-  const RING = 132;
+  const COL = 58, ROW = 62;
   const real = TECHS.filter(t => !TECH_GENERIC.has(t.id));
   const kids = {};
   for (const t of real) { const p = preOf(t.id); if (p) (kids[p] = kids[p] || []).push(t.id); }
@@ -396,50 +398,33 @@ function treeLayout() {
   const leafMemo = {};
   const leaves = id => leafMemo[id] || (leafMemo[id] = (kids[id] && kids[id].length)
     ? kids[id].reduce((n, c) => n + leaves(c), 0) : 1);
-  /* stable per-id pseudo-random in [0,1) */
-  const h = s => { let x = 2166136261; for (let i = 0; i < s.length; i++) { x ^= s.charCodeAt(i); x = Math.imul(x, 16777619); } return ((x >>> 0) % 10000) / 10000; };
+
+  /* Leaves before branches at each level, and lighter subtrees first — the eye meets
+     the short, finishable things before it meets a limb that runs on for forty rows. */
+  for (const k in kids) kids[k].sort((a, b) => leaves(a) - leaves(b) || a.localeCompare(b));
 
   const nodes = {}, edges = [];
-  const place = (id, a0, a1, depth, si) => {
-    const a = (a0 + a1) / 2;
-    const r = depth * RING + (h(id) - 0.5) * RING * 0.42;
-    nodes[id] = { id, depth, a, r, si, x: Math.cos(a) * r, y: Math.sin(a) * r,
-                  kids: (kids[id] || []).length, leaf: !(kids[id] || []).length,
-                  sub: leaves(id) };   /* subtree size — drives trunk-to-twig edge width */
+  let row = 0;
+  const place = (id, depth, si) => {
     const cs = kids[id] || [];
-    if (!cs.length) return;
-    /* Pure leaf-count weighting starves the childless siblings of a big hub — Closed
-       Guard's 14 children end up stacked on top of each other. Blend toward equal
-       shares near the middle, where arc length is scarcest. */
-    const tot = cs.reduce((n, c) => n + leaves(c), 0);
-    const prop = depth <= 2 ? 0.5 : depth === 3 ? 0.75 : 0.9;
-    let cur = a0;
-    cs.forEach((c, i) => {
-      const frac = prop * (leaves(c) / tot) + (1 - prop) / cs.length;
-      const span = (a1 - a0) * frac;
-      place(c, cur, cur + span, depth + 1, i);
-      edges.push([id, c]);
-      cur += span;
-    });
+    nodes[id] = { id, depth, si, x: depth * COL, y: row * ROW,
+                  kids: cs.length, leaf: !cs.length,
+                  sub: leaves(id) };   /* subtree size — drives trunk-to-twig edge width */
+    row++;
+    cs.forEach((c, i) => { place(c, depth + 1, i); edges.push([id, c]); });
   };
-  const totLeaves = roots.reduce((n, r) => n + leaves(r), 0);
-  let cur = -Math.PI / 2;
-  roots.forEach((r, i) => {
-    const span = Math.PI * 2 * leaves(r) / totLeaves;
-    place(r, cur, cur + span, 1, i);
-    cur += span;
-  });
+  roots.forEach((r, i) => { place(r, 0, i); row += 1; });   /* a blank row between the two roots */
 
-  let minX = 0, maxX = 0, minY = 0, maxY = 0;
+  let maxX = 0, maxY = 0;
   for (const id in nodes) {
     const n = nodes[id];
-    minX = Math.min(minX, n.x); maxX = Math.max(maxX, n.x);
-    minY = Math.min(minY, n.y); maxY = Math.max(maxY, n.y);
+    maxX = Math.max(maxX, n.x); maxY = Math.max(maxY, n.y);
   }
-  /* Symmetric viewBox around the origin so the roots sit dead centre when the map
-     opens — the bounding box is lopsided and would otherwise park them off-screen. */
-  const R = Math.max(Math.abs(minX), Math.abs(maxX), Math.abs(minY), Math.abs(maxY)) + 140;
-  _layout = { nodes, edges, roots, R, minX: -R, minY: -R, w: R * 2, h: R * 2 };
+  const padX = 34, padY = ROW * 1.5;
+  const label = 300;   /* room for the longest name to the right of its node */
+  _layout = { nodes, edges, roots, COL, ROW,
+              minX: -padX, minY: -padY,
+              w: maxX + label + padX * 2, h: maxY + padY * 2 };
   return _layout;
 }
 

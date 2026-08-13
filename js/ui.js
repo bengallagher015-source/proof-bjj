@@ -201,7 +201,7 @@ function renderHome() {
         <div class="rank-badge">${rank.lvl}</div>
         <div class="rank-tx">
           <b>${esc(rank.name)}</b>
-          <span>MAT RANK · <span class="rank-mp"><span id="mpNum">0</span> MP</span> · ${rank.next - rank.mp} to next</span>
+          <span>LVL ${rank.lvl} · <span class="rank-mp"><span id="mpNum">0</span> MP</span><em>${(rank.next - rank.mp).toLocaleString()} to next</em></span>
           <div class="xp"><i id="xpBar"></i></div>
         </div>
       </div>
@@ -591,7 +591,15 @@ function openBrainMap(focusId) {
   wrap.className = 'mega brainmap';
   wrap.innerHTML = `
     <div class="bm-top">
-      <div class="bm-title"><b>The map</b><span id="bmCount"></span></div>
+      <div class="bm-title">
+        <b>The map</b>
+        <span id="bmCount"></span>
+        <span class="bm-legend">
+          <span><i class="s-learnt"></i>learnt</span>
+          <span><i class="s-open"></i>ready</span>
+          <span><i class="s-locked"></i>locked</span>
+        </span>
+      </div>
       <button class="bm-x" id="bmClose" aria-label="Close map">✕</button>
     </div>
     <svg id="bmSvg" viewBox="${L.minX} ${L.minY} ${L.w} ${L.h}" preserveAspectRatio="xMidYMid meet">
@@ -606,11 +614,6 @@ function openBrainMap(focusId) {
       <g id="bmPulse"></g>
       <g id="bmNodes"></g>
     </svg>
-    <div class="bm-legend">
-      <span><i class="s-learnt"></i>learnt</span>
-      <span><i class="s-open"></i>unlocked</span>
-      <span><i class="s-locked"></i>locked</span>
-    </div>
     <div class="bm-card" id="bmCard" hidden></div>`;
 
   /* .mega starts at opacity 0. Flush the style so the transition has a start value,
@@ -624,14 +627,18 @@ function openBrainMap(focusId) {
   const gE = document.getElementById('bmEdges'), gP = document.getElementById('bmPulse');
   const gN = document.getElementById('bmNodes');
 
-  /* faint depth rings — gives the void a floor to sit on and reads as a scan */
-  gR.innerHTML = [2, 4, 6, 8, 10].map(d => `<circle class="bm-ring" r="${d * 132}"/>`).join('');
+  /* faint indent guides so deep branches stay anchored to the level above */
+  gR.innerHTML = Array.from({ length: 11 }, (_, d) =>
+    `<line class="bm-ring" x1="${d * L.COL}" y1="${L.minY}" x2="${d * L.COL}" y2="${L.minY + L.h}"/>`).join('');
 
+  const rOf = n => n.depth === 0 ? 16 : n.leaf ? 7 : 9 + Math.min(Math.sqrt(n.sub) * 1.6, 6);
   const edgePath = (p, c) => {
-    /* bend through a point on the parent's angle at the child's radius — a dendrite,
-       not a spoke */
-    const mx = Math.cos(p.a) * c.r, my = Math.sin(p.a) * c.r;
-    return `M${p.x.toFixed(1)} ${p.y.toFixed(1)} Q${mx.toFixed(1)} ${my.toFixed(1)} ${c.x.toFixed(1)} ${c.y.toFixed(1)}`;
+    /* Down the parent's own column, then a rounded turn into the child — the shape a
+       file tree makes, which is what tells you at a glance what belongs to what. */
+    const x = p.x, turn = 15;
+    return `M${x} ${(p.y + rOf(p) + 2).toFixed(0)} V${(c.y - turn).toFixed(0)}` +
+           ` Q${x} ${c.y.toFixed(0)} ${(x + turn).toFixed(0)} ${c.y.toFixed(0)}` +
+           ` H${(c.x - rOf(c) - 3).toFixed(0)}`;
   };
 
   const paint = () => {
@@ -662,21 +669,20 @@ function openBrainMap(focusId) {
 
     gN.innerHTML = Object.values(L.nodes).map(n => {
       const t = techById(n.id), s = nodeState(n.id);
-      const rad = n.depth === 1 ? 26 : n.leaf ? 10 : 13 + Math.min(Math.sqrt(n.sub) * 2.6, 13);
+      const rad = rOf(n);
       const hue = catHue(n.id);
-      /* Hubs and anything already lit stay labelled at every zoom; the long tail of
-         leaves only labels once you've zoomed in, or the middle turns to soup. */
-      const always = s === 'learnt' || n.depth === 1 || n.kids >= 3;
-      const lbl = always ? 'bm-t' : (s === 'open' || n.kids ? 'bm-t far' : '');
       const lit = s !== 'locked';
+      /* Every node is labelled — each row belongs to one node, so nothing can collide.
+         Locked leaves just sit back until you're looking at them. */
+      const dim = (s === 'locked' && !n.kids) ? ' far' : '';
       return `<g class="bm-n ${s}${focusId === n.id ? ' focus' : ''}" data-node="${n.id}"
-        style="${lit ? `--h:${hue};` : ''}animation-delay:${(n.depth * 0.05).toFixed(2)}s"
-        transform="translate(${n.x.toFixed(1)} ${n.y.toFixed(1)})">
-        <circle class="bm-hit" r="${Math.max(rad + 16, 30)}"/>
+        style="${lit ? `--h:${hue};` : ''}animation-delay:${Math.min(n.depth * 0.045, 0.4).toFixed(2)}s"
+        transform="translate(${n.x.toFixed(0)} ${n.y.toFixed(0)})">
+        <rect class="bm-hit" x="${-rad - 12}" y="-26" width="${Math.round(rad + 40 + t.name.length * 11.4)}" height="52"/>
         ${s === 'open' ? `<circle class="bm-ripple" r="${rad}"/>` : ''}
         <circle class="bm-dot" r="${rad}"/>
         ${s === 'learnt' ? `<circle class="bm-spec" r="${(rad * 0.72).toFixed(1)}" fill="url(#bmCore)"/>` : ''}
-        ${lbl ? `<text class="${lbl}" y="${n.si % 2 ? -(rad + 15) : rad + 29}">${esc(t.name)}</text>` : ''}
+        <text class="bm-t${dim}" x="${rad + 14}">${esc(t.name)}</text>
       </g>`;
     }).join('');
 
@@ -687,18 +693,23 @@ function openBrainMap(focusId) {
   paint();
 
   /* ── pan + pinch zoom ── */
-  /* The whole map is ~2900 units across; showing all of it on a phone would make the
-     labels unreadable. Open at a span that's comfortable to read and let people pull
-     back for the overview. */
-  const SPAN = 780;
-  const fit = Math.min(svg.clientWidth || 375, svg.clientHeight || 700) / L.w;  /* preserveAspectRatio meet */
-  const k0 = (Math.min(svg.clientWidth || 375, svg.clientHeight || 700) / SPAN) / fit;
+  /* The tree is ~3900 units across and ~7400 down; all of it at once would make the
+     labels unreadable. Open at a span you can actually read and let people pull back. */
+  /* The canvas is a tall narrow column. Fit its WIDTH to the screen — meet would fit
+     the 11,000-unit height instead and render everything microscopic. */
+  const vw = svg.clientWidth || 375, vh = svg.clientHeight || 700;
+  const fit = Math.min(vw / L.w, vh / L.h);          /* preserveAspectRatio="meet" */
+  const k0 = (vw / L.w) / fit;
+  const cx = L.minX + L.w / 2, cy = L.minY + L.h / 2;
+  const centreOn = (id, k) => {
+    const n = L.nodes[id]; if (!n) return { tx: 0, ty: 0 };
+    return { tx: -(n.x - cx) * fit * k, ty: -(n.y - cy) * fit * k };
+  };
   if (!mapView) {
-    mapView = { k: k0, tx: 0, ty: 0 };
-    if (focusId && L.nodes[focusId]) {
-      mapView.tx = -L.nodes[focusId].x * k0 * fit;
-      mapView.ty = -L.nodes[focusId].y * k0 * fit;
-    }
+    /* full width, scrolled to the root the user actually starts from */
+    const target = (focusId && L.nodes[focusId]) ? focusId : 'closed-guard';
+    const c = centreOn(target, k0);
+    mapView = { k: k0, tx: 0, ty: c.ty + vh * 0.32 };
   }
   const apply = () => {
     svg.style.transform = `translate(${mapView.tx}px,${mapView.ty}px) scale(${mapView.k})`;
@@ -784,8 +795,13 @@ function showNodeCard(id, repaint) {
   });
   const g = card.querySelector('[data-goto]');
   if (g) g.addEventListener('click', () => {
-    const L = treeLayout(), n = L.nodes[g.dataset.goto];
-    if (n) { mapView.tx = -n.x * mapView.k; mapView.ty = -n.y * mapView.k; document.getElementById('bmSvg').style.transform = `translate(${mapView.tx}px,${mapView.ty}px) scale(${mapView.k})`; }
+    const L = treeLayout(), n = L.nodes[g.dataset.goto], svg = document.getElementById('bmSvg');
+    if (n && svg) {
+      const fit = Math.min(svg.clientWidth / L.w, svg.clientHeight / L.h);
+      const cy = L.minY + L.h / 2;
+      mapView.ty = -(n.y - cy) * fit * mapView.k;   /* scroll to it; width already fits */
+      svg.style.transform = `translate(${mapView.tx}px,${mapView.ty}px) scale(${mapView.k})`;
+    }
     showNodeCard(g.dataset.goto, repaint);
   });
 }
