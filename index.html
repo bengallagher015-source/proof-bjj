@@ -81,6 +81,42 @@
 <div class="toasts" id="toasts" aria-live="polite"></div>
 <canvas id="shareCanvas" width="1080" height="1350" hidden></canvas>
 
+<!-- Boot guard. #app and #onb both start hidden, so if the scripts never run the
+     page is simply blank with no way out. This is styled inline on purpose: it has
+     to work even when the stylesheet is the thing that failed. -->
+<div id="bootFail" hidden style="position:fixed;inset:0;z-index:999;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:18px;padding:32px;text-align:center;
+  background:#070910;color:#f5f7fa;font:400 15px/1.5 -apple-system,system-ui,sans-serif">
+  <div style="font:800 21px/1.2 -apple-system,system-ui,sans-serif;letter-spacing:.02em">PROOF didn't start</div>
+  <div style="color:#a6b0c0;max-width:30ch">Usually a stale offline copy. This clears it and reloads — your training log is not touched.</div>
+  <button id="bootFix" style="appearance:none;border:0;border-radius:14px;padding:15px 26px;
+    background:#5b96f7;color:#071120;font:700 15px/1 -apple-system,system-ui,sans-serif">Repair &amp; reload</button>
+</div>
+<script>
+(function () {
+  var t = setTimeout(function () {
+    if (window.__proofBooted) return;
+    var el = document.getElementById('bootFail');
+    if (el) el.hidden = false;
+  }, 6000);
+  window.__proofBootOK = function () { window.__proofBooted = true; clearTimeout(t); };
+  var b = document.getElementById('bootFix');
+  if (b) b.addEventListener('click', function () {
+    b.textContent = 'Repairing…';
+    var done = function () { location.reload(); };
+    var jobs = [];
+    if (window.caches) jobs.push(caches.keys().then(function (ks) {
+      return Promise.all(ks.map(function (k) { return caches.delete(k); }));
+    }));
+    if (navigator.serviceWorker) jobs.push(navigator.serviceWorker.getRegistrations().then(function (rs) {
+      return Promise.all(rs.map(function (r) { return r.unregister(); }));
+    }));
+    Promise.all(jobs).then(done, done);
+    setTimeout(done, 4000);
+  });
+})();
+</script>
+
 <script src="js/taxonomy.js"></script>
 <script src="js/engine.js"></script>
 <script src="js/ui.js"></script>

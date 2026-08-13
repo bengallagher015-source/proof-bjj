@@ -108,14 +108,25 @@ if (quarantined) {
      not lost — say so rather than dropping the user into onboarding as if they were new. */
   setTimeout(() => toast('Saved data could not be read by this version — a copy was kept. Reload to try again.', 9000), 700);
 }
-if (hasProfile()) {
+/* Whatever happens below, get something on screen — a thrown error here used to
+   leave both #app and #onb hidden, i.e. a blank page with no way out. */
+try {
+  if (hasProfile()) {
+    document.getElementById('app').hidden = false;
+    applyBelt(state.profile.belt);
+    renderTab('home');
+  } else {
+    document.getElementById('onb').hidden = false;
+    renderOnboarding();
+  }
+} catch (bootErr) {
   document.getElementById('app').hidden = false;
-  applyBelt(state.profile.belt);
-  renderTab('home');
-} else {
-  document.getElementById('onb').hidden = false;
-  renderOnboarding();
+  try { renderRecovery(bootErr); } catch (e2) {
+    const el = document.getElementById('bootFail');
+    if (el) el.hidden = false;
+  }
 }
+if (window.__proofBootOK) window.__proofBootOK();
 
 /* PWA */
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
