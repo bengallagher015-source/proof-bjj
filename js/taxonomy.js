@@ -35,6 +35,13 @@ const TECH_CATS = {
 };
 /* Library reading order — coarse position work first, finishes after. */
 const LIB_ORDER = ['control', 'guard', 'pass', 'sweep', 'sub', 'leg', 'escape', 'td'];
+/* Map hues. Only lit nodes wear them — the unlearnt map stays graphite, so the part
+   you've actually built is the part that has colour. Jewel tones on near-black. */
+const CAT_HUE = {
+  control: '#e6bb4f', guard: '#a583fa', pass: '#4fd6e6', sweep: '#4ade80',
+  sub: '#f4655f', leg: '#f59e5b', escape: '#5b96f7', td: '#e879b9',
+};
+function catHue(id) { const t = TECH_BY_ID[id]; return (t && CAT_HUE[t.cat]) || '#8b95a6'; }
 
 /* [id, name, cat, aliases...] — aliases include spoken/passive forms */
 const TECH_DEFS = [
@@ -397,7 +404,8 @@ function treeLayout() {
     const a = (a0 + a1) / 2;
     const r = depth * RING + (h(id) - 0.5) * RING * 0.42;
     nodes[id] = { id, depth, a, r, si, x: Math.cos(a) * r, y: Math.sin(a) * r,
-                  kids: (kids[id] || []).length, leaf: !(kids[id] || []).length };
+                  kids: (kids[id] || []).length, leaf: !(kids[id] || []).length,
+                  sub: leaves(id) };   /* subtree size — drives trunk-to-twig edge width */
     const cs = kids[id] || [];
     if (!cs.length) return;
     /* Pure leaf-count weighting starves the childless siblings of a big hub — Closed

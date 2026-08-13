@@ -506,7 +506,7 @@ function renderRecall() {
 
       <div class="lib-cats">
         ${lib.cats.map(c => `
-          <button class="lib-cat" data-cat="${c.cat}">
+          <button class="lib-cat" data-cat="${c.cat}" style="--h:${CAT_HUE[c.cat]}">
             <span class="lc-ico">${c.ico}</span>
             <span class="lc-nm">${c.name}</span>
             <span class="lc-n num">${c.done}/${c.total}</span>
@@ -568,11 +568,13 @@ function miniMapSVG() {
   const edges = L.edges.map(([a, b]) => {
     const p = L.nodes[a], c = L.nodes[b];
     const on = nodeState(a) === 'learnt' && nodeState(b) === 'learnt';
-    return `<line x1="${p.x.toFixed(0)}" y1="${p.y.toFixed(0)}" x2="${c.x.toFixed(0)}" y2="${c.y.toFixed(0)}" class="${on ? 'mm-on' : 'mm-off'}"/>`;
+    return `<line x1="${p.x.toFixed(0)}" y1="${p.y.toFixed(0)}" x2="${c.x.toFixed(0)}" y2="${c.y.toFixed(0)}"
+      class="${on ? 'mm-on' : 'mm-off'}"${on ? ` style="stroke:${catHue(b)}"` : ''}/>`;
   }).join('');
   const dots = Object.values(L.nodes).map(n => {
     const s = nodeState(n.id);
-    return `<circle cx="${n.x.toFixed(0)}" cy="${n.y.toFixed(0)}" r="${n.depth === 1 ? 34 : n.leaf ? 13 : 20}" class="mm-${s}"/>`;
+    return `<circle cx="${n.x.toFixed(0)}" cy="${n.y.toFixed(0)}" r="${n.depth === 1 ? 34 : n.leaf ? 13 : 20}"
+      class="mm-${s}"${s === 'locked' ? '' : ` style="fill:${catHue(n.id)}"`}/>`;
   }).join('');
   return `<svg viewBox="${L.minX} ${L.minY} ${L.w} ${L.h}" class="minimap" aria-hidden="true">${edges}${dots}</svg>`;
 }
@@ -587,7 +589,6 @@ function openBrainMap(focusId) {
   const wrap = document.getElementById('mega');
   wrap.hidden = false;
   wrap.className = 'mega brainmap';
-  requestAnimationFrame(() => wrap.classList.add('on'));   /* .mega starts at opacity 0 */
   wrap.innerHTML = `
     <div class="bm-top">
       <div class="bm-title"><b>The map</b><span id="bmCount"></span></div>
@@ -595,10 +596,14 @@ function openBrainMap(focusId) {
     </div>
     <svg id="bmSvg" viewBox="${L.minX} ${L.minY} ${L.w} ${L.h}" preserveAspectRatio="xMidYMid meet">
       <defs>
-        <radialGradient id="bmGlow"><stop offset="0" stop-color="var(--acc)" stop-opacity=".55"/><stop offset="1" stop-color="var(--acc)" stop-opacity="0"/></radialGradient>
-        <filter id="bmBlur" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="7"/></filter>
+        <radialGradient id="bmGlow"><stop offset="0" stop-color="#fff" stop-opacity=".5"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+        <radialGradient id="bmCore" cx="38%" cy="34%">
+          <stop offset="0" stop-color="#fff" stop-opacity=".85"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+        </radialGradient>
       </defs>
+      <g id="bmRings"></g>
       <g id="bmEdges"></g>
+      <g id="bmPulse"></g>
       <g id="bmNodes"></g>
     </svg>
     <div class="bm-legend">
@@ -608,35 +613,70 @@ function openBrainMap(focusId) {
     </div>
     <div class="bm-card" id="bmCard" hidden></div>`;
 
+  /* .mega starts at opacity 0. Flush the style so the transition has a start value,
+     then reveal synchronously — rAF is throttled when the tab isn't actively
+     rendering, which can leave the map sitting invisible over the app. */
+  void wrap.offsetWidth;
+  wrap.classList.add('on');
+
   const svg = document.getElementById('bmSvg');
-  const gE = document.getElementById('bmEdges'), gN = document.getElementById('bmNodes');
+  const gR = document.getElementById('bmRings');
+  const gE = document.getElementById('bmEdges'), gP = document.getElementById('bmPulse');
+  const gN = document.getElementById('bmNodes');
+
+  /* faint depth rings — gives the void a floor to sit on and reads as a scan */
+  gR.innerHTML = [2, 4, 6, 8, 10].map(d => `<circle class="bm-ring" r="${d * 132}"/>`).join('');
+
+  const edgePath = (p, c) => {
+    /* bend through a point on the parent's angle at the child's radius — a dendrite,
+       not a spoke */
+    const mx = Math.cos(p.a) * c.r, my = Math.sin(p.a) * c.r;
+    return `M${p.x.toFixed(1)} ${p.y.toFixed(1)} Q${mx.toFixed(1)} ${my.toFixed(1)} ${c.x.toFixed(1)} ${c.y.toFixed(1)}`;
+  };
 
   const paint = () => {
     const st = treeStats();
     document.getElementById('bmCount').textContent = `${st.learnt} / ${st.total} · ${st.open} ready`;
-    /* edges first so nodes sit on top */
+
+    /* edges: width tapers from trunk to twig with subtree size, hue from the branch
+       they feed, and only light up once both ends are learnt */
+    const lit = [];
     gE.innerHTML = L.edges.map(([a, b]) => {
       const p = L.nodes[a], c = L.nodes[b];
       const sa = nodeState(a), sc = nodeState(b);
-      const cls = sa === 'learnt' && sc === 'learnt' ? 'e-on' : sa === 'learnt' ? 'e-half' : 'e-off';
-      /* bend through a point on the parent's angle at the child's radius — reads as a
-         dendrite rather than a straight spoke */
-      const mx = Math.cos(p.a) * c.r, my = Math.sin(p.a) * c.r;
-      return `<path class="bm-e ${cls}" d="M${p.x.toFixed(1)} ${p.y.toFixed(1)} Q${mx.toFixed(1)} ${my.toFixed(1)} ${c.x.toFixed(1)} ${c.y.toFixed(1)}"/>`;
+      const on = sa === 'learnt' && sc === 'learnt';
+      const cls = on ? 'e-on' : sa === 'learnt' ? 'e-half' : 'e-off';
+      const w = (1.6 + Math.sqrt(c.sub) * 1.5).toFixed(1);
+      const d = edgePath(p, c);
+      if (on) lit.push({ b, c, d });
+      return `<path class="bm-e ${cls}" d="${d}" style="${cls === 'e-off' ? '' : `stroke:${catHue(b)};`}stroke-width:${w}"/>`;
     }).join('');
+    /* Every pulse is an animated, drop-shadowed path — a fully-lit map would be 179 of
+       them and would cook a phone GPU. Keep the outermost ones, where the eye is. */
+    const PULSE_MAX = 64;
+    gP.innerHTML = lit
+      .sort((x, y) => y.c.depth - x.c.depth)
+      .slice(0, PULSE_MAX)
+      .map(({ b, c, d }) => `<path class="bm-p" d="${d}" style="stroke:${catHue(b)};animation-delay:${(c.depth * 0.24 + (c.si % 3) * 0.4).toFixed(2)}s"/>`)
+      .join('');
 
     gN.innerHTML = Object.values(L.nodes).map(n => {
       const t = techById(n.id), s = nodeState(n.id);
-      const rad = n.depth === 1 ? 24 : n.leaf ? 10 : 14 + Math.min(n.kids, 6);
+      const rad = n.depth === 1 ? 26 : n.leaf ? 10 : 13 + Math.min(Math.sqrt(n.sub) * 2.6, 13);
+      const hue = catHue(n.id);
       /* Hubs and anything already lit stay labelled at every zoom; the long tail of
          leaves only labels once you've zoomed in, or the middle turns to soup. */
-      const always = s === 'learnt' || n.depth <= 2 || n.kids >= 3;
+      const always = s === 'learnt' || n.depth === 1 || n.kids >= 3;
       const lbl = always ? 'bm-t' : (s === 'open' || n.kids ? 'bm-t far' : '');
-      return `<g class="bm-n ${s}${focusId === n.id ? ' focus' : ''}" data-node="${n.id}" transform="translate(${n.x.toFixed(1)} ${n.y.toFixed(1)})">
-        ${s !== 'locked' ? `<circle class="bm-halo" r="${rad * 2.6}" fill="url(#bmGlow)"/>` : ''}
+      const lit = s !== 'locked';
+      return `<g class="bm-n ${s}${focusId === n.id ? ' focus' : ''}" data-node="${n.id}"
+        style="${lit ? `--h:${hue};` : ''}animation-delay:${(n.depth * 0.05).toFixed(2)}s"
+        transform="translate(${n.x.toFixed(1)} ${n.y.toFixed(1)})">
         <circle class="bm-hit" r="${Math.max(rad + 16, 30)}"/>
+        ${s === 'open' ? `<circle class="bm-ripple" r="${rad}"/>` : ''}
         <circle class="bm-dot" r="${rad}"/>
-        ${lbl ? `<text class="${lbl}" y="${n.si % 2 ? -(rad + 14) : rad + 28}">${esc(t.name)}</text>` : ''}
+        ${s === 'learnt' ? `<circle class="bm-spec" r="${(rad * 0.72).toFixed(1)}" fill="url(#bmCore)"/>` : ''}
+        ${lbl ? `<text class="${lbl}" y="${n.si % 2 ? -(rad + 15) : rad + 29}">${esc(t.name)}</text>` : ''}
       </g>`;
     }).join('');
 
@@ -715,10 +755,11 @@ function showNodeCard(id, repaint) {
   const card = document.getElementById('bmCard');
   const preName = pre ? techById(pre).name : null;
   card.hidden = false;
+  card.style.setProperty('--h', CAT_HUE[t.cat]);
   card.innerHTML = `
     <div class="bm-c-hd">
       <span class="bm-c-ico">${TECH_CATS[t.cat].ico}</span>
-      <div><b>${esc(t.name)}</b><span>${TECH_CATS[t.cat].name} · ${BELTS[BELT_ORDER[techLevel(id) - 1]].name.toLowerCase()} belt</span></div>
+      <div><b>${esc(t.name)}</b><span><i class="bm-c-cat">${TECH_CATS[t.cat].name}</i> · ${BELTS[BELT_ORDER[techLevel(id) - 1]].name.toLowerCase()} belt</span></div>
     </div>
     <p class="bm-c-p">${s === 'learnt'
       ? (kids.length ? `Learnt. It opens ${kids.length} move${kids.length > 1 ? 's' : ''}: ${kids.slice(0, 3).map(k => esc(techById(k).name)).join(', ')}${kids.length > 3 ? '…' : ''}` : 'Learnt. End of this branch.')

@@ -420,8 +420,12 @@ svg{display:block}
 .lc-ico{font-size:15px; line-height:1}
 .lc-nm{font:600 13px/1.15 var(--f-body); color:var(--tx)}
 .lc-n{font-size:11.5px; color:var(--tx-3); letter-spacing:-.02em}
+/* Each category carries its map hue here too — this is where people learn what the
+   colours on the brain map mean, so the map itself needs no colour key. */
 .lc-bar{grid-column:1/-1; height:4px; border-radius:3px; background:var(--ink); overflow:hidden; margin-top:3px}
-.lc-bar i{display:block; height:100%; background:var(--acc); border-radius:3px; transition:width .5s var(--ease)}
+.lc-bar i{display:block; height:100%; background:var(--h, var(--acc)); border-radius:3px;
+  box-shadow:0 0 8px var(--h); transition:width .5s var(--ease)}
+.lib-cat .lc-ico{filter:drop-shadow(0 0 7px var(--h))}
 
 .lib-band{font:600 10.5px/1 var(--f-mono); letter-spacing:.16em; text-transform:uppercase;
   color:var(--tx-3); margin:20px 0 8px; padding-bottom:7px; border-bottom:1px solid var(--line)}
@@ -453,18 +457,28 @@ svg{display:block}
   background:radial-gradient(circle at 50% 50%, var(--ink-4), var(--ink)); display:grid; place-items:center}
 .minimap{width:100%; height:100%}
 .minimap line{stroke-width:5}
-.minimap .mm-off{stroke:var(--line-2); opacity:.5}
-.minimap .mm-on{stroke:var(--acc); opacity:.9}
+.minimap .mm-off{stroke:var(--line-2); opacity:.45}
+.minimap .mm-on{opacity:.95}
 .minimap .mm-locked{fill:var(--line-2)}
-.minimap .mm-open{fill:var(--acc); opacity:.55}
-.minimap .mm-learnt{fill:var(--acc)}
+.minimap .mm-open{opacity:.4}
+.minimap .mm-learnt{opacity:1}
 .bm-open-tx{flex:1; min-width:0; display:block}
 .bm-open-tx b{display:block; font:700 15px/1.2 var(--f-disp); letter-spacing:-.01em}
 .bm-open-tx span{display:block; font-size:12px; color:var(--tx-2); margin-top:3px}
 .bm-open-go{color:var(--acc); font-size:19px; flex:none}
 
-.mega.brainmap{padding:0; background:radial-gradient(120% 90% at 50% 40%, #0d1119, #05070a 70%);
-  backdrop-filter:none; -webkit-backdrop-filter:none; place-items:stretch; overflow:hidden}
+/* Nebula: a couple of wide colour washes over near-black so the void has depth and
+   the map looks like it's sitting in something rather than on nothing. */
+.mega.brainmap{padding:0; place-items:stretch; overflow:hidden;
+  backdrop-filter:none; -webkit-backdrop-filter:none;
+  background:
+    radial-gradient(70% 50% at 22% 18%, rgba(91,150,247,.13), transparent 65%),
+    radial-gradient(60% 45% at 82% 78%, rgba(165,131,250,.12), transparent 65%),
+    radial-gradient(50% 40% at 62% 30%, rgba(79,214,230,.07), transparent 70%),
+    radial-gradient(120% 95% at 50% 45%, #0c1119, #04060a 72%)}
+.brainmap::after{                      /* vignette, keeps the eye in the middle */
+  content:""; position:absolute; inset:0; pointer-events:none; z-index:2;
+  background:radial-gradient(105% 78% at 50% 50%, transparent 52%, rgba(3,5,8,.78))}
 .brainmap #bmSvg{position:absolute; inset:0; width:100%; height:100%;
   transform-origin:50% 50%; touch-action:none; cursor:grab}
 .brainmap #bmSvg:active{cursor:grabbing}
@@ -480,26 +494,48 @@ svg{display:block}
   color:var(--tx-2); background:rgba(255,255,255,.07); border:1px solid var(--line-2);
   backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px)}
 
+/* depth rings — a faint floor under the void */
+.bm-ring{fill:none; stroke:#141b26; stroke-width:1.5; opacity:.75}
+
 /* synapses */
 .bm-e{fill:none; stroke-linecap:round}
-.bm-e.e-off{stroke:#1e2531; stroke-width:2}
-.bm-e.e-half{stroke:var(--acc); stroke-width:2.4; opacity:.34}
-.bm-e.e-on{stroke:var(--acc); stroke-width:3.4; opacity:.85; filter:drop-shadow(0 0 6px var(--acc-line))}
+.bm-e.e-off{stroke:#1a212c; opacity:.85}
+.bm-e.e-half{opacity:.3}
+.bm-e.e-on{opacity:.9}
+
+/* a charge travelling out along the branches you've built */
+.bm-p{fill:none; stroke-linecap:round; stroke-width:5; opacity:.9;
+  stroke-dasharray:26 460; animation:bmFlow 3.4s linear infinite;
+  filter:drop-shadow(0 0 7px currentColor); pointer-events:none}
+@keyframes bmFlow{from{stroke-dashoffset:486}to{stroke-dashoffset:0}}
 
 /* nodes */
-.bm-n{cursor:pointer}
+.bm-n{cursor:pointer; animation:bmIn .5s var(--spring) both}
+@keyframes bmIn{from{opacity:0; transform:scale(.4)}}
 .bm-hit{fill:transparent}
-.bm-dot{stroke-width:2.5; transition:fill .25s, stroke .25s}
-.bm-n.locked .bm-dot{fill:#141a24; stroke:#242c3a}
-.bm-n.locked .bm-t{fill:var(--tx-3); opacity:.5}
-.bm-n.open .bm-dot{fill:var(--ink-3); stroke:var(--acc);
-  animation:bmPulse 2.4s var(--ease) infinite}
-.bm-n.open .bm-t{fill:var(--tx)}
-.bm-n.learnt .bm-dot{fill:var(--acc); stroke:var(--acc);
-  filter:drop-shadow(0 0 10px var(--acc-line))}
-.bm-n.learnt .bm-t{fill:var(--tx)}
-.bm-halo{pointer-events:none}
-.bm-n.locked .bm-halo{display:none}
+.bm-dot{stroke-width:2.5; transition:fill .3s, stroke .3s, r .3s}
+.bm-spec,.bm-ripple{pointer-events:none}
+
+.bm-n.locked .bm-dot{fill:#10161f; stroke:#232b38}
+.bm-n.locked .bm-t{fill:var(--tx-3); opacity:.45}
+
+.bm-n.open .bm-dot{fill:#0b1119; stroke:var(--h)}
+.bm-n.open .bm-t{fill:var(--tx-2)}
+.bm-n.open .bm-ripple{fill:none; stroke:var(--h); stroke-width:2; opacity:0;
+  animation:bmRipple 2.8s var(--ease) infinite}
+@keyframes bmRipple{0%{opacity:.55; transform:scale(1)}70%,100%{opacity:0; transform:scale(2.6)}}
+
+/* two shadows: a tight core glow and a wide bloom — reads as light, not a ring */
+.bm-n.learnt .bm-dot{fill:var(--h); stroke:var(--h);
+  filter:drop-shadow(0 0 9px var(--h)) drop-shadow(0 0 28px var(--h))}
+.bm-n.learnt .bm-t{fill:#fff}
+
+.bm-n.focus .bm-dot{stroke:#fff; stroke-width:4}
+@media (prefers-reduced-motion:reduce){
+  .bm-n{animation:none}
+  .bm-p,.bm-n.open .bm-ripple{animation:none}
+  .bm-p{opacity:0}
+}
 /* font-size is in SVG user units, not CSS px — at the default span this lands
    around 12px on screen */
 .bm-t{text-anchor:middle; font-family:var(--f-body); font-weight:600; font-size:23px;
@@ -507,18 +543,16 @@ svg{display:block}
   pointer-events:none}
 .bm-t.far{opacity:0; transition:opacity .2s}
 #bmSvg.zoomed .bm-t.far{opacity:1}
-.bm-n.focus .bm-dot{stroke-width:4}
-@keyframes bmPulse{0%,100%{stroke-opacity:1}50%{stroke-opacity:.4}}
-@media (prefers-reduced-motion:reduce){.bm-n.open .bm-dot{animation:none}}
 
 .bm-legend{position:absolute; left:0; right:0; bottom:calc(10px + env(safe-area-inset-bottom));
   z-index:3; display:flex; justify-content:center; gap:16px; pointer-events:none}
 .bm-legend span{display:flex; align-items:center; gap:6px; font:600 10px/1 var(--f-mono);
   letter-spacing:.1em; text-transform:uppercase; color:var(--tx-3)}
 .bm-legend i{width:9px; height:9px; border-radius:50%; border:2px solid}
-.bm-legend .s-learnt{background:var(--acc); border-color:var(--acc)}
-.bm-legend .s-open{background:transparent; border-color:var(--acc)}
-.bm-legend .s-locked{background:#141a24; border-color:#242c3a}
+/* neutral — on the map itself colour means category, not state */
+.bm-legend .s-learnt{background:#dfe4ec; border-color:#dfe4ec; box-shadow:0 0 7px rgba(223,228,236,.8)}
+.bm-legend .s-open{background:transparent; border-color:#8b95a6}
+.bm-legend .s-locked{background:#10161f; border-color:#232b38}
 
 .bm-card{position:absolute; left:12px; right:12px; bottom:calc(46px + env(safe-area-inset-bottom));
   z-index:4; max-width:420px; margin-inline:auto; padding:15px 16px 16px; border-radius:20px;
@@ -529,6 +563,9 @@ svg{display:block}
 .bm-c-ico{font-size:20px; line-height:1}
 .bm-c-hd b{display:block; font:700 17px/1.15 var(--f-disp); letter-spacing:-.01em}
 .bm-c-hd span{display:block; font-size:12px; color:var(--tx-2); margin-top:2px}
+.bm-c-cat{font-style:normal; font-weight:600; color:var(--h)}
+.bm-c-ico{filter:drop-shadow(0 0 8px var(--h))}
+.bm-card{border-top:2px solid var(--h)}
 .bm-c-p{font-size:13.5px; line-height:1.5; color:var(--tx-2); margin-bottom:13px}
 .bm-c-p b{color:var(--tx)}
 
