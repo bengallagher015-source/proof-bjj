@@ -86,6 +86,8 @@ document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () =>
 document.getElementById('fabLog').addEventListener('click', openLogSheet);
 document.getElementById('scrim').addEventListener('click', closeSheet);
 document.getElementById('beltChip').addEventListener('click', () => renderTab('you'));
+/* partner links appear in the Proof tab and inside session sheets — one delegated handler covers both */
+document.addEventListener('click', e => { const el = e.target.closest('[data-partner]'); if (el) openPartnerPage(el.dataset.partner); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !document.getElementById('sheet').hidden) closeSheet(); });
 
 /* swipe down on grab-handle closes sheet */

@@ -820,3 +820,55 @@ svg{display:block}
 
 .bm-c-btns{display:flex; gap:8px}
 .bm-c-btns .btn{flex:1}
+
+/* ── rolling partners ─────────────────────────────────────── */
+.belt-dot{display:inline-block; width:10px; height:10px; border-radius:50%; flex:none; background:var(--bc); box-shadow:0 0 0 1.5px rgba(255,255,255,.08) inset}
+.belt-dot.lg{width:18px; height:18px}
+.belt-dot.xl{width:34px; height:34px; box-shadow:0 0 14px var(--bc), 0 0 0 2px rgba(255,255,255,.1) inset}
+.b-white{--bc:#e9e6dd} .b-blue{--bc:#5b96f7} .b-purple{--bc:#a583fa} .b-brown{--bc:#c98d57} .b-black{--bc:#3a3f4a}
+.roll-row{display:grid; grid-template-columns:1fr auto; gap:6px 10px; align-items:center; padding:11px 12px; margin-bottom:8px;
+  border-radius:14px; background:var(--ink-3); border:1px solid var(--line)}
+.roll-who{display:flex; align-items:center; gap:8px; min-width:0}
+.roll-who b{font-size:14.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.roll-who span{font:500 10.5px/1 var(--f-mono); color:var(--tx-3); white-space:nowrap}
+.roll-x{width:30px; height:30px; border-radius:50%; color:var(--tx-3); font-size:12px; background:var(--ink-4)}
+.roll-outs{grid-column:1/-1; display:grid; grid-template-columns:repeat(3,1fr); gap:6px}
+.roll-out{position:relative; padding:11px 6px; border-radius:11px; font:700 12.5px/1 var(--f-body); min-height:44px;
+  background:var(--ink-4); border:1px solid var(--line); color:var(--tx-2); transition:transform .15s var(--spring)}
+.roll-out:active{transform:scale(.95)}
+.roll-out em{position:absolute; top:-7px; right:-5px; min-width:20px; height:20px; padding:0 6px; border-radius:10px;
+  font:800 11px/20px var(--f-mono); font-style:normal; background:var(--tx); color:var(--ink)}
+.roll-out.o-won{color:var(--good); border-color:rgba(74,222,128,.3)}
+.roll-out.o-lost{color:var(--bad); border-color:rgba(244,101,95,.3)}
+.roll-chips{margin-top:2px}
+.roll-chips .chip{display:inline-flex; align-items:center; gap:7px; min-height:38px}
+.chip.ghost{border-style:dashed; color:var(--tx-2)}
+.roll-new{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px; padding:12px; border-radius:14px; background:var(--ink-3); border:1px solid var(--line)}
+.roll-new input{flex:1 1 140px; min-width:0; background:var(--ink-4); border:1px solid var(--line); border-radius:11px; padding:11px 12px; color:var(--tx)}
+.roll-new input:focus{outline:none; border-color:var(--acc)}
+.roll-belts{display:flex; gap:7px}
+.belt-pick{width:34px; height:34px; border-radius:50%; background:var(--bc); opacity:.42; border:2px solid transparent; transition:opacity .15s, transform .15s var(--spring)}
+.belt-pick.on{opacity:1; border-color:#fff; transform:scale(1.1)}
+.roll-line{display:flex; align-items:center; gap:9px; width:100%; text-align:left; padding:9px 2px; border-bottom:1px solid var(--line); color:inherit}
+.roll-line:last-of-type{border-bottom:0}
+.roll-line b{flex:1; min-width:0; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.roll-tally{display:inline-flex; gap:3px; flex:none}
+.roll-tally em{font:800 12px/1 var(--f-mono); font-style:normal; min-width:26px; text-align:center; padding:6px 0; border-radius:7px; background:var(--ink-4); color:var(--tx-2)}
+.roll-tally .o-won{color:var(--good)} .roll-tally .o-lost{color:var(--bad)}
+.o-won{color:var(--good)} .o-lost{color:var(--bad)}
+.pt-flag{display:flex; gap:11px; align-items:flex-start; padding:12px 13px; margin-bottom:10px; border-radius:14px;
+  background:var(--ink-3); border:1px solid var(--line); border-left:3px solid var(--warn)}
+.pt-flag.good{border-left-color:var(--good)}
+.pt-flag>span{font-size:19px; line-height:1.1}
+.pt-flag b{display:block; font:700 14.5px/1.25 var(--f-disp); margin-bottom:2px}
+.pt-flag div span{font-size:12.5px; color:var(--tx-2); line-height:1.4}
+.belt-row{display:flex; gap:6px; margin:4px 0 12px; overflow-x:auto; -webkit-overflow-scrolling:touch}
+.belt-cell{flex:1 0 auto; min-width:78px; display:flex; flex-direction:column; align-items:center; gap:5px; padding:10px 8px;
+  border-radius:12px; background:var(--ink-4); border:1px solid var(--line)}
+.belt-cell b{font-size:14px; letter-spacing:-.02em} .belt-cell b em{font-style:normal; color:var(--tx-3); margin:0 2px}
+.belt-cell span{font:600 9.5px/1 var(--f-mono); letter-spacing:.08em; text-transform:uppercase; color:var(--tx-3)}
+.pt-row{width:100%; text-align:left; color:inherit}
+.pt-row .tech-cat{display:grid; place-items:center}
+.pp-strip{display:flex; flex-wrap:wrap; gap:4px; margin-bottom:12px}
+.pp-strip i{width:14px; height:14px; border-radius:4px; background:var(--ink-4)}
+.pp-strip i.o-won{background:var(--good)} .pp-strip i.o-lost{background:var(--bad)} .pp-strip i.o-even{background:var(--line-2)}

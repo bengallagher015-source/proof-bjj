@@ -22,6 +22,7 @@ function defaults() {
     lastLevel: 1,    // last level celebrated (level-up detection)
     learned: {},     // techId -> ts, the library ticks
     techNotes: {},   // techId -> {cues:[str], note:str, ts} — your own words on a move
+    partners: {},    // pid -> {name, belt, ts} — who you roll with; sessions carry rolls[]
     demo: false,
     savedAt: 0,      // ms of last write — guards stale tabs (see saveState)
   };
@@ -89,6 +90,7 @@ function validRecord(d) {
   if (d.reviewLog != null && !Array.isArray(d.reviewLog)) return false;
   if (d.seen != null && !Array.isArray(d.seen)) return false;
   if (d.techNotes != null && (typeof d.techNotes !== 'object' || Array.isArray(d.techNotes))) return false;
+  if (d.partners != null && (typeof d.partners !== 'object' || Array.isArray(d.partners))) return false;
   return true;
 }
 
@@ -248,7 +250,7 @@ const TECH_MILES = [5, 10, 25, 50, 100];
 
 function allProofs() {
   const proofs = [];
-  const hitCount = {}, seenFirst = {}, seenVs = {};
+  const hitCount = {}, seenFirst = {}, seenVs = {}, seenWin = {}, seenBeltWin = {};
   let mins = 0, hourIdx = 0, sessIdx = 0, lastTs = 0;
   const higher = { white: 1, blue: 2, purple: 3, brown: 4, black: 5, bigger: 0.5 };
   const myBelt = state.profile ? higher[state.profile.belt] : 1;
@@ -260,6 +262,18 @@ function allProofs() {
         title: 'Back on the mat', sub: `Returned after ${Math.round((s.ts - lastTs) / DAY)} days away. Showing up is the whole game.` });
     }
     lastTs = s.ts;
+    /* rounds: the first time you catch someone is evidence; so is the first time you
+       catch a belt above your own */
+    for (const r of (s.rolls || [])) {
+      if (r.out !== 'won') continue;
+      const pp = partnerById(r.pid); if (!pp) continue;
+      if (!seenWin[r.pid]) { seenWin[r.pid] = 1;
+        proofs.push({ id: 'win-' + r.pid, kind: 'first', ts: s.ts, icon: '🤝', tier: 2,
+          title: `Caught ${pp.name}`, sub: `First round you took off them. There'll be more.` }); }
+      if (higher[pp.belt] > myBelt && !seenBeltWin[pp.belt]) { seenBeltWin[pp.belt] = 1;
+        proofs.push({ id: 'beltwin-' + pp.belt, kind: 'vs', ts: s.ts, icon: '🥋', tier: 3,
+          title: `Took a round off a ${pp.belt} belt`, sub: `Higher belt, your round. That is not supposed to happen yet.` }); }
+    }
     /* session milestones */
     if (SESSION_MILES.includes(si + 1)) {
       proofs.push({ id: 'sess-' + (si + 1), kind: 'mile', ts: s.ts, icon: si === 0 ? '🥋' : '📅', tier: si + 1 >= 50 ? 3 : si + 1 >= 10 ? 2 : 1,
@@ -443,6 +457,84 @@ function techFull(id) {
            pre: preOf(id), kids: childrenOf(id) };
 }
 function cuedCount() { return Object.keys(state.techNotes && typeof state.techNotes === 'object' ? state.techNotes : {}).length; }
+
+/* ── rolling partners & rounds ───────────────────────────── */
+/* A partner is {name, belt}; a session carries rolls: [{pid, out}] — one entry per
+   round, out ∈ won|even|lost from YOUR side. Belt is what the numbers key on, so a
+   partner logged as just "purple belt" is fully useful; the name is for you. */
+const OUTS = ['won', 'even', 'lost'];
+function partnersMap() { return (state.partners && typeof state.partners === 'object') ? state.partners : {}; }
+function partnerById(pid) { return partnersMap()[pid] || null; }
+function addPartner(name, belt) {
+  if (!state.partners || typeof state.partners !== 'object') state.partners = {};
+  name = String(name || '').trim().slice(0, 40);
+  belt = BELTS[belt] ? belt : 'white';
+  /* same name + belt = same person */
+  const dupe = Object.entries(state.partners).find(([, p]) => p.name.toLowerCase() === name.toLowerCase() && p.belt === belt && name);
+  if (dupe) return dupe[0];
+  const pid = uid();
+  state.partners[pid] = { name: name || `${BELTS[belt].name} belt`, belt, ts: Date.now() };
+  saveState();
+  return pid;
+}
+function partnerDisplay(pid) {
+  const p = partnerById(pid); if (!p) return 'Someone';
+  return p.name;
+}
+/* every round against this partner, newest first, with the session it came from */
+function partnerRounds(pid) {
+  const out = [];
+  for (const s of state.sessions) for (const r of (s.rolls || [])) if (r.pid === pid) out.push({ sess: s, out: r.out });
+  return out.sort((a, b) => b.sess.ts - a.sess.ts);
+}
+function partnerStats(pid) {
+  const rs = partnerRounds(pid);
+  const tally = { won: 0, even: 0, lost: 0 };
+  for (const r of rs) tally[r.out] = (tally[r.out] || 0) + 1;
+  const firstWin = [...rs].reverse().find(r => r.out === 'won');
+  /* trend: your win-rate over the last 6 rounds vs the 6 before */
+  const rate = arr => arr.length ? arr.filter(r => r.out === 'won').length / arr.length : null;
+  const recent = rate(rs.slice(0, 6)), prior = rate(rs.slice(6, 12));
+  const sessions = new Set(rs.map(r => r.sess.id)).size;
+  return { rounds: rs.length, sessions, ...tally,
+           firstWinTs: firstWin ? firstWin.sess.ts : 0,
+           lastTs: rs.length ? rs[0].sess.ts : 0,
+           recent, prior,
+           turning: recent != null && prior != null && recent - prior >= 0.34,
+           rs };
+}
+function partnerBoard() {
+  return Object.keys(partnersMap()).map(pid => ({ pid, ...partnerById(pid), ...partnerStats(pid) }))
+    .filter(p => p.rounds).sort((a, b) => b.lastTs - a.lastTs);
+}
+/* who's been getting you lately — most losses in the last 60 days, min 3 rounds */
+function nemesis() {
+  const since = Date.now() - 60 * DAY;
+  const t = {};
+  for (const s of state.sessions) if (s.ts > since) for (const r of (s.rolls || [])) {
+    t[r.pid] = t[r.pid] || { pid: r.pid, rounds: 0, lost: 0 };
+    t[r.pid].rounds++; if (r.out === 'lost') t[r.pid].lost++;
+  }
+  return Object.values(t).filter(x => x.rounds >= 3 && x.lost / x.rounds >= 0.5)
+    .sort((a, b) => b.lost - a.lost || b.lost / b.rounds - a.lost / a.rounds)[0] || null;
+}
+/* the good story: people you used to lose to who you're now catching */
+function turningTide() { return partnerBoard().filter(p => p.turning && p.rounds >= 8); }
+/* rounds vs each belt, lifetime — the honest version of "how am I going" */
+function beltTally() {
+  const t = {};
+  for (const s of state.sessions) for (const r of (s.rolls || [])) {
+    const p = partnerById(r.pid); if (!p) continue;
+    t[p.belt] = t[p.belt] || { belt: p.belt, won: 0, even: 0, lost: 0 };
+    t[p.belt][r.out]++;
+  }
+  return BELT_ORDER.map(b => t[b]).filter(Boolean);
+}
+function rollsInSession(s) {
+  const by = {};
+  for (const r of (s.rolls || [])) { by[r.pid] = by[r.pid] || { pid: r.pid, won: 0, even: 0, lost: 0 }; by[r.pid][r.out]++; }
+  return Object.values(by);
+}
 
 /* ── trophies ────────────────────────────────────────────── */
 function trophies() {

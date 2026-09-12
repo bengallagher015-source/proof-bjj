@@ -295,6 +295,9 @@ function openSessionSheet(id) {
     ${line('Landed', grp('hit'), 'hit')}
     ${line('Drilled / learned', [...grp('drilled'), ...grp('learned')], '')}
     ${line('Caught by', grp('conceded'), 'conceded')}
+    ${(s.rolls || []).length ? `<div class="lbl">Rounds</div>${rollsInSession(s).map(r => { const p = partnerById(r.pid); return p ? `
+      <button class="roll-line" data-partner="${r.pid}"><i class="belt-dot b-${p.belt}"></i><b>${esc(p.name)}</b>
+        <span class="roll-tally"><em class="o-won">${r.won}</em><em class="o-even">${r.even}</em><em class="o-lost">${r.lost}</em></span></button>` : ''; }).join('')}` : ''}
     ${(s.niggles || []).length ? `<div class="lbl">Body flags</div><div class="chips">${s.niggles.map(g => { const r = regionById(g.region); return `<span class="chip niggle">${r ? r.name : g.region} · ${['', 'mild', 'sore', 'bad'][g.sev]}</span>`; }).join('')}</div>` : ''}
     ${s.notes ? `<div class="lbl">Notes</div><p style="font-size:14.5px;line-height:1.6;color:var(--tx-2)">${esc(s.notes)}</p>` : ''}
     <div class="btnrow">
@@ -341,6 +344,18 @@ function renderProof() {
       <p class="muted" style="font-size:13.5px;margin:6px 0 18px">${L.sessions} sessions · ${L.rounds} rounds · ${L.subs} finishes. Nobody can take these back.</p>
     </div>
 
+${(() => { const board = partnerBoard(); if (!board.length) return ''; const nem = nemesis(), tide = turningTide(), belts = beltTally();
+      return `<div class="card enter">
+      <div class="card-hd"><h3>Rolling partners</h3><span class="tiny">${board.reduce((n,p)=>n+p.rounds,0)} rounds logged</span></div>
+      ${tide.length ? tide.slice(0,2).map(p => `<div class="pt-flag good"><span>🌊</span><div><b>Turning the tide on ${esc(p.name)}</b><span>Winning ${Math.round(p.recent*100)}% of your last six, up from ${Math.round(p.prior*100)}%.</span></div></div>`).join('') : ''}
+      ${nem ? `<div class="pt-flag"><span>🎯</span><div><b>${esc(partnerDisplay(nem.pid))} has your number</b><span>${nem.lost} of your last ${nem.rounds} rounds. That's a study project, not a problem.</span></div></div>` : ''}
+      ${belts.length ? `<div class="belt-row">${belts.map(b => `<div class="belt-cell"><i class="belt-dot b-${b.belt}"></i><b class="num">${b.won}<em>–</em>${b.even}<em>–</em>${b.lost}</b><span>vs ${b.belt}</span></div>`).join('')}</div>` : ''}
+      ${board.slice(0, 6).map(p => `<button class="tech-row pt-row" data-partner="${p.pid}">
+        <div class="tech-cat"><i class="belt-dot lg b-${p.belt}"></i></div>
+        <div class="tech-nm"><b>${esc(p.name)}</b><span>${p.rounds} rounds · last ${relDate(p.lastTs).toLowerCase()}</span></div>
+        <span class="roll-tally"><em class="o-won">${p.won}</em><em class="o-even">${p.even}</em><em class="o-lost">${p.lost}</em></span>
+      </button>`).join('')}
+    </div>`; })()}
     ${ins.length ? `<div class="kicker">Coach's eye</div>` + ins.map(i => `
       <div class="insight"><div class="insight-in"><span class="i-ico">${i.ico}</span><div><b>${esc(i.title)}</b><span>${esc(i.sub)}</span></div></div></div>`).join('') : ''}
 
@@ -826,6 +841,35 @@ function showNodeCard(id, repaint) {
    Your cues and notes, what the log says, where it sits on the map, and the
    actions that matter. Reached from the map, the library, the arsenal and the
    recall check. Cues written here resurface in that move's recall check. */
+/* ── partner page ─────────────────────────────────────────── */
+function openPartnerPage(pid) {
+  const p = partnerById(pid); if (!p) return;
+  const draw = () => {
+    const st = partnerStats(pid);
+    const pct = st.rounds ? Math.round(st.won / st.rounds * 100) : 0;
+    openSheet(`
+      <div class="pp">
+        <div class="tp-hd"><i class="belt-dot xl b-${p.belt}"></i><div class="tp-tx"><h2>${esc(p.name)}</h2><p class="sub">${BELTS[p.belt].name} belt · ${st.rounds} round${st.rounds === 1 ? '' : 's'} over ${st.sessions} session${st.sessions === 1 ? '' : 's'}</p></div></div>
+        <div class="tp-stats"><div><b class="num o-won">${st.won}</b><span>got them</span></div><div><b class="num">${st.even}</b><span>even</span></div><div><b class="num o-lost">${st.lost}</b><span>got me</span></div></div>
+        <p class="tiny tp-meta">${st.rounds ? `You take ${pct}% of rounds` : 'No rounds yet'}${st.firstWinTs ? ` · first caught them ${fmtDate(st.firstWinTs)}` : st.rounds ? ' · haven\'t caught them yet — that first one is coming' : ''}${st.turning ? ' · <b style="color:var(--good)">turning the tide</b>' : ''}</p>
+        <div class="tp-sec"><div class="card-hd"><h3>Round by round</h3><span class="tiny">newest first</span></div>
+          <div class="pp-strip">${st.rs.slice(0, 40).map(r => `<i class="o-${r.out}" title="${fmtDate(r.sess.ts)}"></i>`).join('')}</div>
+          ${st.rs.slice(0, 6).map(r => `<button class="tp-row" data-sess="${r.sess.id}"><i class="tp-dot ${r.out === 'won' ? 'r-hit' : r.out === 'lost' ? 'r-conceded' : ''}"></i><span class="tp-row-tx"><b>${r.out === 'won' ? 'Got them' : r.out === 'lost' ? 'Got me' : 'Even'}</b><span>${relDate(r.sess.ts)}</span></span><span class="tp-row-go">›</span></button>`).join('')}
+        </div>
+        <div class="tp-sec"><div class="card-hd"><h3>Details</h3></div>
+          <form class="roll-new" id="ppEdit"><input id="ppName" value="${esc(p.name)}" maxlength="40"><div class="roll-belts">${BELT_ORDER.map(b => `<button type="button" class="belt-pick b-${b}${b === p.belt ? ' on' : ''}" data-belt="${b}"></button>`).join('')}</div><button type="submit" class="btn small">Save</button></form>
+          <p class="tiny" style="margin-top:8px">Got promoted? Change the belt here — past rounds keep the belt they were rolled at.</p>
+        </div>
+      </div>`);
+    document.querySelectorAll('.pp [data-sess]').forEach(b => b.addEventListener('click', () => openSessionSheet(b.dataset.sess)));
+    let belt = p.belt;
+    document.querySelectorAll('.pp .belt-pick').forEach(b => b.addEventListener('click', () => { belt = b.dataset.belt; document.querySelectorAll('.pp .belt-pick').forEach(x => x.classList.toggle('on', x.dataset.belt === belt)); }));
+    $('#ppEdit').addEventListener('submit', e => { e.preventDefault(); p.name = $('#ppName').value.trim().slice(0, 40) || p.name; p.belt = belt; saveState(); toast('Saved'); draw(); });
+  };
+  draw();
+}
+
+/* ── partner page ends ─────────────────────────────────────── */
 function openTechPage(id, onClose) {
   const t = techById(id); if (!t) return;
   const draw = () => {
@@ -1077,10 +1121,10 @@ function renderYou() {
 }
 
 /* ── LOG FLOW ────────────────────────────────────────────── */
-const draft = { type: 'gi', mins: 60, rounds: 5, intensity: 3, notes: '', parsed: null, niggleSel: {}, warmupPain: false };
+const draft = { type: 'gi', mins: 60, rounds: 5, intensity: 3, notes: '', parsed: null, niggleSel: {}, warmupPain: false, rolls: [] };
 
 function openLogSheet() {
-  Object.assign(draft, { type: 'gi', mins: 60, rounds: 5, intensity: 3, notes: '', parsed: null, niggleSel: {}, warmupPain: false });
+  Object.assign(draft, { type: 'gi', mins: 60, rounds: 5, intensity: 3, notes: '', parsed: null, niggleSel: {}, warmupPain: false, rolls: [] });
   openSheet(logStep1(), () => Voice.stop());
   bindLogStep1();
 }
@@ -1125,6 +1169,8 @@ function logStep2() {
     <div class="tsug" id="techSug" hidden></div>
     <div class="lbl">Anything hurting? Tap the spot (tap again = worse)</div>
     <div class="bodywrap" id="nigglePick">${bodySVG({}, true, draft.niggleSel)}</div>
+    <div class="lbl">Who did you roll with? <span class="tiny">tap a name, then tap how each round went</span></div>
+    <div id="rollZone"></div>
     <div class="tgl">
       <div class="tgl-tx"><b>Pain during warm-up?</b><span>The honest answer is the useful one (+10 MP)</span></div>
       <button class="tgl-sw ${draft.warmupPain ? 'on' : ''}" id="wupTgl" role="switch" aria-checked="${draft.warmupPain}"></button>
@@ -1154,6 +1200,7 @@ function drawChips() {
   z.querySelectorAll('[data-rmnig]').forEach(b => b.addEventListener('click', () => { p.niggles.splice(+b.dataset.rmnig, 1); drawChips(); }));
 }
 function bindLogStep2() {
+  bindRolls();
   const tx = $('#notesTx');
   let deb;
   tx.addEventListener('input', () => { draft.notes = tx.value; clearTimeout(deb); deb = setTimeout(reparse, 350); });
@@ -1198,6 +1245,56 @@ function bindLogStep2() {
 }
 
 /* ── the recap story (post-save ritual) ──────────────────── */
+/* ── rounds in the log flow ───────────────────────────────── */
+/* Recent partners as chips; tapping one adds a row for them. Each row is three
+   outcome taps — Got them / Even / Got me — and a running count per outcome, so a
+   night of six rounds with one person is six taps. New partner = name + belt. */
+function drawRolls() {
+  const z = $('#rollZone'); if (!z) return;
+  const recent = partnerBoard().slice(0, 6).map(p => p.pid);
+  const inDraft = new Set(draft.rolls.map(r => r.pid));
+  const rows = [...new Set(draft.rolls.map(r => r.pid))];
+  const count = (pid, out) => draft.rolls.filter(r => r.pid === pid && r.out === out).length;
+  z.innerHTML = `
+    ${rows.map(pid => { const p = partnerById(pid); if (!p) return ''; return `
+      <div class="roll-row" data-roll="${pid}">
+        <div class="roll-who"><i class="belt-dot b-${p.belt}"></i><b>${esc(p.name)}</b><span>${BELTS[p.belt].name.toLowerCase()} · ${count(pid,'won')+count(pid,'even')+count(pid,'lost')} rd</span></div>
+        <div class="roll-outs">
+          ${OUTS.map(o => `<button class="roll-out o-${o}" data-out="${o}">${o === 'won' ? 'Got them' : o === 'even' ? 'Even' : 'Got me'}${count(pid,o) ? `<em>${count(pid,o)}</em>` : ''}</button>`).join('')}
+        </div>
+        <button class="roll-x" data-roll-x="${pid}" aria-label="Remove">✕</button>
+      </div>`; }).join('')}
+    <div class="chips roll-chips">
+      ${recent.filter(pid => !inDraft.has(pid)).map(pid => { const p = partnerById(pid); return `<button class="chip" data-roll-add="${pid}"><i class="belt-dot b-${p.belt}"></i>${esc(p.name)}</button>`; }).join('')}
+      <button class="chip ghost" id="rollNew">+ someone new</button>
+    </div>
+    <form class="roll-new" id="rollNewForm" hidden>
+      <input id="rollName" placeholder="Name (optional)" maxlength="40" autocomplete="off">
+      <div class="roll-belts">${BELT_ORDER.map(b => `<button type="button" class="belt-pick b-${b}" data-belt="${b}" aria-label="${BELTS[b].name}"></button>`).join('')}</div>
+      <button type="submit" class="btn small">Add</button>
+    </form>`;
+  bindRolls();
+}
+let rollNewBelt = 'blue';
+function bindRolls() {
+  const z = $('#rollZone'); if (!z) return;
+  if (!z.innerHTML.trim()) { drawRolls(); return; }
+  z.querySelectorAll('[data-roll-add]').forEach(b => b.onclick = () => addRollRow(b.dataset.rollAdd));
+  z.querySelectorAll('[data-roll]').forEach(row => {
+    const pid = row.dataset.roll;
+    row.querySelectorAll('[data-out]').forEach(b => b.onclick = () => { draft.rolls.push({ pid, out: b.dataset.out }); drawRolls(); });
+  });
+  z.querySelectorAll('[data-roll-x]').forEach(b => b.onclick = () => { draft.rolls = draft.rolls.filter(r => r.pid !== b.dataset.rollX); rollRows.delete(b.dataset.rollX); drawRolls(); });
+  const nb = $('#rollNew'); if (nb) nb.onclick = () => { const f = $('#rollNewForm'); f.hidden = !f.hidden; if (!f.hidden) { paintBelt(); $('#rollName').focus(); } };
+  const paintBelt = () => z.querySelectorAll('.belt-pick').forEach(b => b.classList.toggle('on', b.dataset.belt === rollNewBelt));
+  z.querySelectorAll('.belt-pick').forEach(b => b.onclick = () => { rollNewBelt = b.dataset.belt; paintBelt(); });
+  const f = $('#rollNewForm'); if (f) f.onsubmit = e => { e.preventDefault(); const pid = addPartner($('#rollName').value, rollNewBelt); addRollRow(pid); };
+}
+/* a partner can be on the sheet with zero rounds logged yet — track that separately
+   from draft.rolls so the row shows before the first outcome tap */
+const rollRows = new Set();
+function addRollRow(pid) { rollRows.add(pid); if (!draft.rolls.some(r => r.pid === pid)) draft.rolls.push({ pid, out: '' }); drawRolls(); }
+
 function saveDraft() {
   Voice.stop();
   const p = draft.parsed || parseNotes(draft.notes);
@@ -1211,6 +1308,7 @@ function saveDraft() {
     ts: Date.now(), type: draft.type, mins: draft.mins, rounds: draft.rounds,
     intensity: draft.intensity, feel: p.feel, warmupPain: draft.warmupPain || p.warmupPain,
     notes: draft.notes.trim(), techs: p.techs.map(({ first, ...t }) => t), niggles,
+    rolls: draft.rolls.filter(r => OUTS.includes(r.out)).map(r => ({ pid: r.pid, out: r.out })),
   };
   const mpBefore = totalMP();
   const questsBefore = questsFor().filter(q => q.done).map(q => q.id);
