@@ -759,3 +759,64 @@ svg{display:block}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important; transition-duration:.01ms!important}
 }
+
+/* ── technique page ───────────────────────────────────────── */
+.tp{--h:var(--acc)}
+.tp-hd{display:flex; align-items:center; gap:13px; margin-bottom:14px}
+.tp-ico{font-size:30px; line-height:1; filter:drop-shadow(0 0 9px var(--h))}
+.tp-tx h2{margin-bottom:3px}
+.tp-cat{font-style:normal; font-weight:600; color:var(--h)}
+.tp-stats{display:grid; grid-template-columns:repeat(3,1fr); gap:8px}
+.tp-stats div{background:var(--ink-4); border:1px solid var(--line); border-radius:var(--r-sm);
+  padding:11px 10px 9px; text-align:center; box-shadow:var(--rim)}
+.tp-stats b{display:block; font:800 22px/1 var(--f-disp); letter-spacing:-.03em; margin-bottom:4px}
+.tp-stats span{font:600 9.5px/1 var(--f-mono); letter-spacing:.1em; text-transform:uppercase; color:var(--tx-3)}
+.tp-meta{margin:10px 0 4px}
+.tp-sec{margin-top:20px}
+.tp-sec .card-hd{margin-bottom:10px}
+.tp-cues{list-style:none; margin:0 0 10px; padding:0}
+.tp-cues li{display:flex; align-items:center; gap:10px; padding:10px 12px; margin-bottom:6px;
+  border-radius:12px; background:var(--ink-3); border:1px solid var(--line); border-left:3px solid var(--h);
+  font-size:14.5px; line-height:1.4}
+.tp-cues li span{flex:1; min-width:0}
+.tp-cues li button{flex:none; width:30px; height:30px; border-radius:50%; color:var(--tx-3); font-size:12px;
+  background:var(--ink-4)}
+.tp-add{display:flex; gap:8px}
+.tp-add input{flex:1; min-width:0; background:var(--ink-4); border:1px solid var(--line); border-radius:12px;
+  padding:12px 13px; color:var(--tx)}
+.tp-add input:focus{outline:none; border-color:var(--h)}
+.tp-add .btn{flex:none; padding:12px 16px}
+.tp-note{width:100%; margin:0}
+.tp-row{display:flex; align-items:center; gap:11px; width:100%; text-align:left; padding:11px 2px;
+  border-bottom:1px solid var(--line); color:inherit}
+.tp-row:last-of-type{border-bottom:0}
+.tp-dot{width:9px; height:9px; border-radius:50%; flex:none; background:var(--tx-3)}
+.tp-dot.r-hit{background:var(--good); box-shadow:0 0 8px var(--good)}
+.tp-dot.r-conceded{background:var(--bad)}
+.tp-dot.r-drilled,.tp-dot.r-learned{background:var(--acc); opacity:.7}
+.tp-row-tx{flex:1; min-width:0}
+.tp-row-tx b{display:block; font-size:14px; font-weight:600}
+.tp-row-tx b em{font-style:normal; color:var(--tx-2); font-weight:500}
+.tp-row-tx span{display:block; font:500 11px/1.4 var(--f-mono); color:var(--tx-3);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.tp-row-go{color:var(--tx-3); font-size:20px; flex:none}
+.tp-map{margin-top:16px; padding-top:14px; border-top:1px solid var(--line)}
+.tp-map b{color:var(--tx)}
+.tp-actions{display:flex; flex-wrap:wrap; gap:8px; margin-top:18px}
+.tp-actions .btn{flex:1 1 auto}
+.tp-cued{font-style:normal; color:var(--acc); font-size:.85em; opacity:.85}
+
+/* › in the library rows — its own target, doesn't toggle the box */
+.lib-go{flex:none; margin-left:auto; width:36px; height:36px; border-radius:50%; font-size:20px;
+  color:var(--tx-3); display:grid; place-items:center}
+.lib-go:active{background:var(--ink-4)}
+
+/* cues on the recall check — the reason they exist */
+.due-cues{list-style:none; margin:12px 0 0; padding:0; text-align:left}
+.due-cues li{position:relative; padding:7px 0 7px 18px; font-size:14px; color:var(--tx); line-height:1.4}
+.due-cues li::before{content:""; position:absolute; left:2px; top:14px; width:7px; height:7px; border-radius:50%;
+  background:var(--acc); box-shadow:0 0 7px var(--acc-line)}
+.due-page{display:block; margin:10px auto 0; font:600 12px/1 var(--f-body); color:var(--acc); padding:8px 10px}
+
+.bm-c-btns{display:flex; gap:8px}
+.bm-c-btns .btn{flex:1}

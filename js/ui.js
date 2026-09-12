@@ -472,6 +472,8 @@ function renderRecall() {
           <div class="kicker">Recall check · ${i + 1}/${due.length} · +15 MP</div>
           <h3>${esc(d.name)}</h3>
           <p>Close your eyes. Walk through it step by step — grips, angles, finish. Could you hit it tomorrow?</p>
+          ${techNotes(d.id).cues.length ? `<ul class="due-cues">${techNotes(d.id).cues.map(c => `<li>${esc(c)}</li>`).join('')}</ul>` : ''}
+          <button class="due-page" data-page="${d.id}">${techNotes(d.id).cues.length ? 'Edit cues' : 'Add cues for next time'} ›</button>
           <div class="due-btns">
             <button class="b-gone" data-grade="gone">Gone</button>
             <button class="b-fuzzy" data-grade="fuzzy">Fuzzy</button>
@@ -520,7 +522,7 @@ function renderRecall() {
       ${ars.length ? ars.slice(0, 16).map(a => `
         <div class="tech-row">
           <button class="tech-cat" data-focus="${a.id}" aria-label="Make ${esc(a.name)} your focus" style="font-size:15px">${state.focus === a.id ? '⭐' : TECH_CATS[a.cat].ico}</button>
-          <div class="tech-nm"><b>${esc(a.name)}</b><span>${TECH_CATS[a.cat].name} · last touched ${relDate(a.lastTs).toLowerCase()}</span></div>
+          <div class="tech-nm" data-page="${a.id}" role="button" tabindex="0"><b>${esc(a.name)}${techNotes(a.id).cues.length ? ' <i class="tp-cued" title="has cues">✎</i>' : ''}</b><span>${TECH_CATS[a.cat].name} · last touched ${relDate(a.lastTs).toLowerCase()}</span></div>
           <div class="tech-n"><b>${a.hit}</b><span>landed</span></div>
         </div>`).join('')
       : `<div class="empty"><div class="e-ico">🗺️</div><h3>Empty map</h3><p>Every technique you log becomes a page in your own book.</p></div>`}
@@ -541,6 +543,8 @@ function renderRecall() {
       else if (!$('#dueWrap [data-due]')) renderRecall();
       checkLevelUp();
     }));
+    const pg = card.querySelector('[data-page]');
+    if (pg) pg.addEventListener('click', () => openTechPage(id, renderRecall));
     const dr = card.querySelector('[data-drill]');
     if (dr) dr.addEventListener('click', () => shadowDrill(name, () => toast('Drilled in the mind — now grade it honestly')));
   });
@@ -549,6 +553,7 @@ function renderRecall() {
     saveState(); renderRecall();
     toast(state.focus ? `${techById(state.focus).name} is this week's weapon` : 'Focus cleared');
   }));
+  view().querySelectorAll('.tech-row [data-page]').forEach(el => el.addEventListener('click', () => openTechPage(el.dataset.page, renderRecall)));
   view().querySelectorAll('[data-learn]').forEach(row => row.addEventListener('click', () => {
     const id = row.dataset.learn, t = techById(id);
     const r = row.getBoundingClientRect();
@@ -777,9 +782,12 @@ function showNodeCard(id, repaint) {
       : s === 'open'
         ? (kids.length ? `Ready to learn — ticking it opens ${kids.length} more.` : 'Ready to learn.')
         : `Locked behind <b>${esc(preName)}</b>. Learn that first.`}</p>
+    <div class="bm-c-btns">
     ${s === 'locked'
       ? `<button class="btn ghost small" data-goto="${pre}">Show me ${esc(preName)}</button>`
-      : `<button class="btn small" data-tick2="${id}">${s === 'learnt' ? 'Un-tick' : 'Mark learnt'}</button>`}`;
+      : `<button class="btn small" data-tick2="${id}">${s === 'learnt' ? 'Un-tick' : 'Mark learnt'}</button>`}
+      <button class="btn ghost small" data-page2="${id}">Open page ›</button>
+    </div>`;
 
   const b = card.querySelector('[data-tick2]');
   if (b) b.addEventListener('click', () => {
@@ -793,6 +801,14 @@ function showNodeCard(id, repaint) {
     }
     repaint(); showNodeCard(id, repaint); checkLevelUp();
   });
+  const pg2 = card.querySelector('[data-page2]');
+  if (pg2) pg2.addEventListener('click', () => {
+    /* #mega (the map) outranks #sheet in the stack, so a page opened over it would
+       be invisible. Step out of the map, show the page, step back in on the same
+       node — mapView persists, so it reopens exactly where it was. */
+    closeBrainMap();
+    openTechPage(id, () => openBrainMap(id));
+  });
   const g = card.querySelector('[data-goto]');
   if (g) g.addEventListener('click', () => {
     const L = treeLayout(), n = L.nodes[g.dataset.goto], svg = document.getElementById('bmSvg');
@@ -804,6 +820,110 @@ function showNodeCard(id, repaint) {
     }
     showNodeCard(g.dataset.goto, repaint);
   });
+}
+
+/* ── technique page: one move, everything you know about it ──────────────
+   Your cues and notes, what the log says, where it sits on the map, and the
+   actions that matter. Reached from the map, the library, the arsenal and the
+   recall check. Cues written here resurface in that move's recall check. */
+function openTechPage(id, onClose) {
+  const t = techById(id); if (!t) return;
+  const draw = () => {
+    const f = techFull(id), hue = CAT_HUE[t.cat];
+    const belt = BELTS[BELT_ORDER[f.lvl - 1]].name.toLowerCase();
+    const stateLine = f.state === 'learnt' ? 'learnt'
+      : f.state === 'open' ? 'ready to learn'
+      : `locked behind ${esc(techById(f.pre).name)}`;
+    const hist = f.hist.slice(0, 8);
+    openSheet(`
+      <div class="tp" style="--h:${hue}">
+        <div class="tp-hd">
+          <span class="tp-ico">${TECH_CATS[t.cat].ico}</span>
+          <div class="tp-tx">
+            <h2>${esc(t.name)}</h2>
+            <p class="sub"><i class="tp-cat">${TECH_CATS[t.cat].name}</i> · ${belt} belt · ${stateLine}</p>
+          </div>
+        </div>
+
+        <div class="tp-stats">
+          <div><b class="num">${f.hit}</b><span>landed</span></div>
+          <div><b class="num">${f.drilled}</b><span>drilled</span></div>
+          <div><b class="num">${f.conceded}</b><span>caught by</span></div>
+        </div>
+        <p class="tiny tp-meta">${f.firstHitTs ? `First landed ${fmtDate(f.firstHitTs)}` : 'Never landed yet'}${f.lastTs ? ` · last touched ${relDate(f.lastTs).toLowerCase()}` : ''}${f.vsBest ? ` · best vs ${f.vsBest} belt` : ''}</p>
+
+        <div class="tp-sec">
+          <div class="card-hd"><h3>Your cues</h3><span class="tiny">${f.notes.cues.length ? 'shown in recall checks' : 'the things that make it work'}</span></div>
+          ${f.notes.cues.length ? `<ul class="tp-cues">${f.notes.cues.map((c, i) => `
+            <li><span>${esc(c)}</span><button data-cue-x="${i}" aria-label="Remove cue">✕</button></li>`).join('')}</ul>` : ''}
+          <form class="tp-add" id="tpCueForm">
+            <input id="tpCue" placeholder="${f.notes.cues.length ? 'Another one…' : 'e.g. hip out before the angle'}" maxlength="90" autocomplete="off">
+            <button type="submit" class="btn small">Add</button>
+          </form>
+        </div>
+
+        <div class="tp-sec">
+          <div class="card-hd"><h3>Notes</h3></div>
+          <textarea class="transcript tp-note" id="tpNote" rows="3" placeholder="What's working, what isn't, who showed you it…">${esc(f.notes.note)}</textarea>
+        </div>
+
+        <div class="tp-sec">
+          <div class="card-hd"><h3>On the mat</h3><span class="tiny">${f.sessions ? `${f.sessions} session${f.sessions > 1 ? 's' : ''}` : ''}</span></div>
+          ${hist.length ? hist.map(h => {
+            const r = h.t.res;
+            const lab = r === 'hit' ? 'Landed' : r === 'conceded' ? 'Caught by it' : r === 'learned' ? 'Learnt' : 'Drilled';
+            return `<button class="tp-row" data-sess="${h.sess.id}">
+              <i class="tp-dot r-${r}"></i>
+              <span class="tp-row-tx"><b>${lab}${h.t.n > 1 ? ` ×${h.t.n}` : ''}${h.t.vs ? ` <em>vs ${h.t.vs}</em>` : ''}</b><span>${relDate(h.sess.ts)}${h.sess.notes ? ' · “' + esc(h.sess.notes.slice(0, 48)) + (h.sess.notes.length > 48 ? '…' : '') + '”' : ''}</span></span>
+              <span class="tp-row-go">›</span>
+            </button>`;
+          }).join('') : `<p class="tiny">Not in the log yet. Say its name when you log a session and it'll show up here.</p>`}
+        </div>
+
+        ${f.kids.length || f.pre ? `<p class="tiny tp-map">${f.pre ? `Branches off <b>${esc(techById(f.pre).name)}</b>` : 'A root of the map'}${f.kids.length ? ` · opens ${f.kids.length}: ${f.kids.slice(0, 3).map(k => esc(techById(k).name)).join(', ')}${f.kids.length > 3 ? '…' : ''}` : ''}</p>` : ''}
+
+        <div class="tp-actions">
+          ${f.state === 'locked'
+            ? `<button class="btn ghost small" data-goto-page="${f.pre}">Show me ${esc(techById(f.pre).name)}</button>`
+            : `<button class="btn small" id="tpLearn">${f.state === 'learnt' ? 'Un-tick' : 'Mark learnt'}</button>`}
+          <button class="btn ghost small" id="tpFocus">${state.focus === id ? '⭐ Focus weapon' : 'Make it my focus'}</button>
+          <button class="btn ghost small" id="tpDrill">🎬 Shadow drill</button>
+        </div>
+      </div>`, onClose);
+
+    /* cues */
+    $('#tpCueForm').addEventListener('submit', e => {
+      e.preventDefault();
+      const v = $('#tpCue').value.trim(); if (!v) return;
+      setTechNotes(id, { cues: [...techNotes(id).cues, v] });
+      draw(); $('#tpCue').focus();
+    });
+    document.querySelectorAll('[data-cue-x]').forEach(b => b.addEventListener('click', () => {
+      const cues = techNotes(id).cues.slice(); cues.splice(+b.dataset.cueX, 1);
+      setTechNotes(id, { cues }); draw();
+    }));
+    /* note saves on blur, not per keystroke — one write, not fifty */
+    $('#tpNote').addEventListener('blur', () => {
+      const v = $('#tpNote').value;
+      if (v !== techNotes(id).note) { setTechNotes(id, { note: v }); toast('Saved'); }
+    });
+    /* rows → session */
+    document.querySelectorAll('[data-sess]').forEach(b => b.addEventListener('click', () => openSessionSheet(b.dataset.sess)));
+    /* actions */
+    const ln = $('#tpLearn'); if (ln) ln.addEventListener('click', () => {
+      const on = nodeState(id) !== 'learnt';
+      setLearned(id, on);
+      if (on) { const r = ln.getBoundingClientRect(); burst(r.left + r.width / 2, r.top, 12); toast(`${t.name} learnt · +20 MP`); }
+      draw(); checkLevelUp();
+    });
+    $('#tpFocus').addEventListener('click', () => {
+      state.focus = state.focus === id ? null : id; saveState(); draw();
+      toast(state.focus ? `${t.name} is this week's weapon` : 'Focus cleared');
+    });
+    $('#tpDrill').addEventListener('click', () => shadowDrill(t.name, () => toast('Drilled in the mind')));
+    const g = document.querySelector('[data-goto-page]'); if (g) g.addEventListener('click', () => openTechPage(g.dataset.gotoPage, onClose));
+  };
+  draw();
 }
 
 /* Full move list for one category — tick as you go. */
@@ -825,10 +945,16 @@ function openLibrary(cat) {
             <input type="checkbox" data-tick="${t.id}"${t.on ? ' checked' : ''}>
             <span class="lib-box" aria-hidden="true"></span>
             <span class="lib-nm">${esc(t.name)}${t.hit ? '<i class="lib-hit">hit it</i>' : ''}</span>
+            <button type="button" class="lib-go" data-page="${t.id}" aria-label="Open ${esc(t.name)}">›</button>
           </label>`).join('');
       }).join('')}
       <button class="btn ghost small" id="libDone" style="margin-top:18px">Done</button>`);
     document.getElementById('libDone').addEventListener('click', closeSheet);
+    /* the › sits inside a <label>; stop the click reaching it or the box toggles too */
+    document.querySelectorAll('[data-page]').forEach(b => b.addEventListener('click', e => {
+      e.preventDefault(); e.stopPropagation();
+      openTechPage(b.dataset.page, () => openLibrary(cat));
+    }));
     document.querySelectorAll('[data-tick]').forEach(cb => cb.addEventListener('change', () => {
       setLearned(cb.dataset.tick, cb.checked);
       cb.closest('.lib-row').classList.toggle('on', cb.checked);

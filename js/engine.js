@@ -21,6 +21,7 @@ function defaults() {
     focus: null,     // techId — this week's weapon
     lastLevel: 1,    // last level celebrated (level-up detection)
     learned: {},     // techId -> ts, the library ticks
+    techNotes: {},   // techId -> {cues:[str], note:str, ts} — your own words on a move
     demo: false,
     savedAt: 0,      // ms of last write — guards stale tabs (see saveState)
   };
@@ -87,6 +88,7 @@ function validRecord(d) {
   if (d.recall != null && (typeof d.recall !== 'object' || Array.isArray(d.recall))) return false;
   if (d.reviewLog != null && !Array.isArray(d.reviewLog)) return false;
   if (d.seen != null && !Array.isArray(d.seen)) return false;
+  if (d.techNotes != null && (typeof d.techNotes !== 'object' || Array.isArray(d.techNotes))) return false;
   return true;
 }
 
@@ -401,6 +403,46 @@ function arsenal() {
   }
   return Object.values(map).sort((a, b) => (b.hit * 3 + b.drilled) - (a.hit * 3 + a.drilled));
 }
+
+/* ── technique pages: your own words on a move ───────────── */
+/* state.techNotes is additive. Cues are short lines that resurface in the recall
+   check for that move — the point of writing them is to be reminded of them at
+   exactly the moment you're trying to recall the technique. */
+function techNotes(id) {
+  const n = state.techNotes && typeof state.techNotes === 'object' ? state.techNotes[id] : null;
+  return n ? { cues: Array.isArray(n.cues) ? n.cues : [], note: n.note || '', ts: n.ts || 0 }
+           : { cues: [], note: '', ts: 0 };
+}
+function setTechNotes(id, patch) {
+  if (!state.techNotes || typeof state.techNotes !== 'object') state.techNotes = {};
+  const cur = techNotes(id);
+  const next = {
+    cues: patch.cues !== undefined ? patch.cues.map(c => String(c).trim()).filter(Boolean).slice(0, 12) : cur.cues,
+    note: patch.note !== undefined ? String(patch.note).slice(0, 2000) : cur.note,
+    ts: Date.now(),
+  };
+  if (!next.cues.length && !next.note.trim()) delete state.techNotes[id];
+  else state.techNotes[id] = next;
+  return saveState();
+}
+/* every appearance of a move in the log, newest first */
+function techHistory(id) {
+  const out = [];
+  for (const s of state.sessions) for (const t of (s.techs || [])) if (t.id === id) out.push({ sess: s, t });
+  return out.sort((a, b) => b.sess.ts - a.sess.ts);
+}
+/* everything a technique page needs in one call */
+function techFull(id) {
+  const st = techStats(id), hist = techHistory(id);
+  let conceded = 0;
+  for (const h of hist) if (h.t.res === 'conceded') conceded += h.t.n;
+  const firstHit = [...hist].reverse().find(h => h.t.res === 'hit');
+  return { ...st, conceded, sessions: hist.length,
+           firstHitTs: firstHit ? firstHit.sess.ts : 0,
+           hist, notes: techNotes(id), state: nodeState(id), lvl: techLevel(id),
+           pre: preOf(id), kids: childrenOf(id) };
+}
+function cuedCount() { return Object.keys(state.techNotes && typeof state.techNotes === 'object' ? state.techNotes : {}).length; }
 
 /* ── trophies ────────────────────────────────────────────── */
 function trophies() {
