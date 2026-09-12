@@ -872,3 +872,12 @@ svg{display:block}
 .pp-strip{display:flex; flex-wrap:wrap; gap:4px; margin-bottom:12px}
 .pp-strip i{width:14px; height:14px; border-radius:4px; background:var(--ink-4)}
 .pp-strip i.o-won{background:var(--good)} .pp-strip i.o-lost{background:var(--bad)} .pp-strip i.o-even{background:var(--line-2)}
+
+/* ── sync card ───────────────────────────────────────────── */
+.sync-form{display:flex; flex-direction:column; gap:8px}
+.sync-form input{width:100%; background:var(--ink-4); border:1px solid var(--line); border-radius:12px; padding:12px 13px; color:var(--tx)}
+.sync-form input:focus{outline:none; border-color:var(--acc)}
+.sync-form .btnrow{display:flex; gap:8px; margin-top:2px}
+.sync-form .btnrow .btn{flex:1}
+.sync-err{color:var(--bad)!important}
+.sync-chip.s-ok{color:var(--good)} .sync-chip.s-offline{color:var(--warn)} .sync-chip.s-error{color:var(--bad)}

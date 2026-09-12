@@ -129,6 +129,8 @@ try {
   }
 }
 if (window.__proofBootOK) window.__proofBootOK();
+/* optional sync — a no-op unless the user has signed in from the You tab */
+if (typeof enterCloud === 'function') enterCloud();
 
 /* PWA */
 if ('serviceWorker' in navigator && location.protocol === 'https:') {

@@ -34,11 +34,12 @@ Everything is hand-written, loaded in order by `index.html`:
 | `js/taxonomy.js` | ~600 | belts, categories, the 184-technique vocabulary, the skill-tree graph + layout, the note parser |
 | `js/engine.js` | ~785 | state + storage, the three engines, MP/rank/quests, library + tree state, demo seed |
 | `js/ui.js` | ~1350 | every render function, the log flow, the brain map, sheets/overlays |
-| `js/app.js` | ~134 | tab routing, recovery panel, voice controller, boot |
+| `js/cloud.js` | ~215 | optional Supabase sync: auth, one-row push/pull, reconcile, the You-tab card |
+| `js/app.js` | ~140 | tab routing, recovery panel, voice controller, boot |
 | `css/style.css` | ~760 | the whole design system |
 | `sw.js` | 65 | service worker (network-first shell) |
 
-No bundler. Load order matters: taxonomy → engine → ui → app.
+No bundler. Load order matters: taxonomy → engine → ui → cloud → app.
 
 ## Data shape
 
@@ -55,7 +56,11 @@ No bundler. Load order matters: taxonomy → engine → ui → app.
   seen:     [ proofId ],        // proofs already celebrated
   focus:    techId | null,      // this week's weapon
   learned:  { techId: ts },     // the library ticks
+  techNotes:{ techId: {cues:[str], note, ts} },   // your own words on a move
+  partners: { pid: {name, belt, ts} },            // who you roll with
   lastLevel: <int>, demo: <bool> }
+
+Sessions may also carry `rolls: [{pid, out:'won'|'even'|'lost'}]`, one per round.
 ```
 
 Every field is **additive** — absent reads as empty, never as an error. There is no
@@ -98,6 +103,26 @@ Engagement layer on top: `totalMP()` (derived, never stored) → 24 named levels
   left enormous voids near the roots (one root owns 107 leaves and spreads its
   children the full canvas height). Indenting spends every row and gives each label
   a lane nothing else can occupy.
+
+## Technique pages, partners, sync (Sept 2026)
+
+- **Technique page** (`openTechPage`): reached from the map's node card, the library
+  `›`, the arsenal, and the recall check. Cues written there **resurface on that
+  move's recall check** — that is the point of them. Note saves on blur. Opening a
+  page from the map steps out of `#mega` (it outranks `#sheet`) and back in on close.
+- **Partners & rounds** (`addPartner`, `partnerStats`, `nemesis`, `turningTide`,
+  `beltTally`): logged in step 2 of the log flow as Got them / Even / Got me per
+  round. Name optional; belt is what everything keys on. Promotions don't rewrite
+  history. Proofs: first round off someone; first round off a higher belt.
+- **Cloud sync** (`cloud.js`): optional, off by default, sign in from the You tab.
+  One row per user in `proof_users` (schema in `docs/supabase-schema.sql`, same
+  Supabase project as REBUILD so one login covers both). Reconcile is **newer wins
+  by `savedAt`**, and an adopt always goes through `snapshot()` first, so whatever
+  loses a race is in "Undo last replace". Known property: a device with a fast clock
+  can win a race it shouldn't — tolerable because nothing is discarded. Pull happens
+  at boot, after sign-in, and on `visibilitychange` → visible (the cross-device
+  moment); push is debounced 1.5s off every successful `saveState` via the
+  `onStateSaved` hook. Claude must not create the account — the user signs up.
 
 ## The parser (`parseNotes`)
 
@@ -180,5 +205,5 @@ handful of realistic phrases, and the destructive paths still prompt and still u
 
 ## Not built yet
 
-Cross-device sync (the REBUILD project has a Supabase pattern worth copying), social
-/ kudos, an App Store wrapper, custom domain, a jump-to-branch control on the map.
+Social / kudos, an App Store wrapper, custom domain, a jump-to-branch control on
+the map (it's one 181-row scroll), competition log, a real-iPhone voice test.

@@ -1041,6 +1041,7 @@ function renderYou() {
       <div class="setrow"><span>Name</span><button id="editName">${esc(p.name || 'Set')} ✏️</button></div>
     </div>
 
+    ${typeof syncCardHTML === 'function' ? syncCardHTML() : ''}
     <div class="card">
       <div class="card-hd"><h3>Data</h3><span class="tiny">${state.demo ? 'DEMO DATA LOADED' : 'yours, on this device'}</span></div>
       <div class="setrow"><span>Share this month</span><button id="wrapBtn">Make card ↗</button></div>
@@ -1068,6 +1069,7 @@ function renderYou() {
     else switchTab('recall');
   });
   $('#editName').addEventListener('click', () => { const n = prompt('Your name', p.name || ''); if (n != null) { p.name = n.trim(); saveState(); renderYou(); } });
+  if (typeof bindSyncCard === 'function') bindSyncCard(renderYou);
   $('#wrapBtn').addEventListener('click', shareWrapCard);
   $('#rankBtn').addEventListener('click', () => shareRankCard(matRank()));
   $('#expBtn').addEventListener('click', () => {

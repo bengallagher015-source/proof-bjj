@@ -8,10 +8,10 @@
    with no way back short of clearing website data. Network-first means a device
    that can reach the internet always self-heals, and the cache is there purely
    so the gym with no signal still works. */
-const CACHE = 'proof-v10';
+const CACHE = 'proof-v11';
 const SHELL = [
   './', 'index.html', 'css/style.css',
-  'js/taxonomy.js', 'js/engine.js', 'js/ui.js', 'js/app.js',
+  'js/taxonomy.js', 'js/engine.js', 'js/ui.js', 'js/cloud.js', 'js/app.js',
   'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png',
 ];
 

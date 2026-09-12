@@ -71,6 +71,7 @@ function saveState(force) {
   try {
     localStorage.setItem(KEY, JSON.stringify(state));
     baseline = state.savedAt;
+    if (typeof onStateSaved === 'function') onStateSaved();   /* cloud.js, if loaded */
     return (lastSaveOK = true);
   } catch (e) {
     if (typeof toast === 'function') toast('⚠️ Not saved — storage full or private browsing. Export a backup.', 7000);
